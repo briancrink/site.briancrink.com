@@ -8,20 +8,67 @@
   <link rel="apple-touch-icon" href="../resources/images/icons/apple-touch-icon.png">
   <link rel="apple-touch-icon" href="../resources/images/icons/apple-touch-icon-dark.png" media="(prefers-color-scheme: dark)">
   <title>Site Map | Brian Crink</title>
-</head>
-<body>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100%;
+      min-height: 50dvh; /*adjusts content height*/
+      overflow-x: hidden;
+    }
+
     body {
-        background: #000000;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        margin: 0;
-        height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: background 0.4s;
-        opacity: 0;
-        animation: fadeIn 1.3s forwards;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #000000;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.6;
+      transition: background 0.4s;
+      opacity: 0;
+      animation: fadeIn 1.3s forwards;
+      padding: 20px 16px;
+    }
+
+    body.light {
+      background: #ffffff;
+      color: #1a1a1a;
+    }
+
+    body.light h1 {
+      color: #1a1a1a;
+    }
+
+    body.light .site-nav-link.map {
+    font-weight: 650;
+    color:rgb(74, 135, 234);
+    }
+
+    body.light .site-nav-link.portal {
+      font-weight: 700;
+    }
+
+    body.light .nav-dot {
+      color: #000000;
+    }
+
+    body.light .sub-domain-link {
+      color:#000000;
+    }
+
+    body.light .sub-page-link {
+      color:rgba(43, 101, 197, 1);
+    }
+
+    body.light .sub-domain-link:hover {
+      text-decoration: underline;
+    }
+
+    body.light .sub-page-link:hover {
+      text-decoration: underline;
     }
 
     @keyframes fadeIn {
@@ -30,23 +77,141 @@
     }
 
     .container {
+      position: relative;
+      max-width: 1400px;
+      width: 100%;
       text-align: center;
-      margin-top: 100px;
+      max-height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
     }
 
-    .dev-image {
+    .header {
+      position:inherit;
       width: 100%;
-      max-width: 420px;
-      height: auto;
-      margin-bottom: 40px;
-      opacity: 0.95;
+      padding-top: 2.5rem;
+    }
+
+    .divider {
+      width: 70%;
+      height: 1px;
+      border: none;
+      background-color: rgba(255, 255, 255, 0.2);
+      margin: 2rem auto 2.5rem;
+    }
+
+    body.light .divider {
+      background-color: rgba(0, 0, 0, 0.15);
+    }
+
+    @property --pc1 { syntax: '<color>'; inherits: false; initial-value: #ff006e; }
+    @property --pc2 { syntax: '<color>'; inherits: false; initial-value: #8338ec; }
+    @property --pc3 { syntax: '<color>'; inherits: false; initial-value: #3a86ff; }
+    @property --pc4 { syntax: '<color>'; inherits: false; initial-value: #06d6a0; }
+    @property --pc5 { syntax: '<color>'; inherits: false; initial-value: #ffbe0b; }
+
+    @keyframes portalChromaFade {
+      0%   { --pc1: #ff006e; --pc2: #8338ec; --pc3: #3a86ff; --pc4: #06d6a0; --pc5: #ffbe0b; }
+      20%  { --pc1: #ffbe0b; --pc2: #ff006e; --pc3: #8338ec; --pc4: #3a86ff; --pc5: #06d6a0; }
+      40%  { --pc1: #06d6a0; --pc2: #ffbe0b; --pc3: #ff006e; --pc4: #8338ec; --pc5: #3a86ff; }
+      60%  { --pc1: #3a86ff; --pc2: #06d6a0; --pc3: #ffbe0b; --pc4: #ff006e; --pc5: #8338ec; }
+      80%  { --pc1: #8338ec; --pc2: #3a86ff; --pc3: #06d6a0; --pc4: #ffbe0b; --pc5: #ff006e; }
+      100% { --pc1: #ff006e; --pc2: #8338ec; --pc3: #3a86ff; --pc4: #06d6a0; --pc5: #ffbe0b; }
+    }
+
+    .site-nav-link.portal {
+      background-image: linear-gradient(
+        90deg,
+        var(--pc1),
+        var(--pc2),
+        var(--pc3),
+        var(--pc4),
+        var(--pc5)
+      );
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      -webkit-text-fill-color: transparent;
+      animation: portalChromaFade 8s linear infinite;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .site-nav-link.portal {
+        animation: none;
+      }
+    }
+
+    .site-nav {
+      position: relative;
+      margin: 0;
+      color: #ffffff;
+      font-size: 1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.55rem;
+      white-space: nowrap;
+      letter-spacing: 0.16rem;
+    }
+
+    .site-nav .portal {
+      text-transform: uppercase;
+      font-size: 0.95rem;
+      letter-spacing: 0.08rem;
+    }
+
+    .site-nav .nav-dot {
+      color: #ffffff;
+      font-weight: 400;
+      font-size: 1.0rem;
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .site-nav .map {
+      font-size: 1.0rem;
+      line-height: 1;
+      letter-spacing: 0.04rem;
+    }
+
+    .site-nav-link {
+      color: inherit;
+      text-decoration: none;
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+
+    .site-nav-link:hover {
+      opacity: 0.85;
+    }
+
+    .identity {
+      position: relative;
+      left: 0;
+      right: 0;
+      text-align: center;
+      z-index: 1;
+    }
+
+    /* Set Image Inline with Name && Center -> Name + Image*/
+    /* .identity-inline {
+      display: inline-flex;
+      position: relative;
+    } */
+
+    .identity-inline {
+      position: relative;
+      display: inline-block;
     }
 
     .name {
       font-size: 3.0rem;
       font-weight: 600;
       color: #ffffff;
-      margin: 0 0 15px 0;
+      margin: 0;
       letter-spacing: -0.5px;
     }
 
@@ -61,150 +226,491 @@
       opacity: 0.85;
     }
 
-    .status {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 40px;
+    /* Set Image Inline with Name && Center -> Name + Image*/
+    /* .dev-image-mini {
+      position: relative;
+      width: 60px;
+      height: 60px;
+      margin: 0 0 0 10px;
+      object-fit: contain;
+      pointer-events: none; 
+    } */
+
+    .dev-image-mini {
+      position: absolute;
+      left: 100%;
+      top: 40%;
+      transform: translateY(-50%);
+      margin-left: 10px;
+      width: 60px;
+      height: 60px;
     }
 
-    .status-pill {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: rgba(255, 255, 255, 0.023);
-      border-radius: 9999px;
-      padding: 8px 20px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      width: fit-content;
+    .links {
+      width: 100%;
+      column-width: 220px;
+      column-gap: 3rem;
+      text-align: left;
     }
 
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      background-color: #1784d1;
+    .links > div {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      text-align: left;
+      gap: 0.45rem;
+      break-inside: avoid;
+      -webkit-column-break-inside: avoid;
+      margin-bottom: 2.5rem;
+    }
+
+    .sub-domain-link {
+      font-size: 1.2rem;
+      font-weight: 500;
+      color: #ffffff;
+      text-decoration: none;
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+
+    .sub-domain-link:hover {
+      opacity: 0.85;
+    }
+
+    .sub-page-link {
+      font-size: 1.1rem;
+      font-weight: 320;
+      color:rgb(79, 140, 238);
+      text-decoration: none;
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+
+    .sub-page-link:hover {
+      opacity: 0.85;
+    }
+
+    .toggle-btn {
+      position: absolute;
+      top: 0;
+      right: 0;
+      background: transparent;
+      border: none;
+      width: 48px;
+      height: 48px;
+      cursor: pointer;
+      padding: 8px;
       border-radius: 50%;
+      transition: transform 0.3s;
       flex-shrink: 0;
-      animation: pulse 2s ease-in-out infinite;
     }
 
-    @keyframes pulse {
-      0%, 100% { 
-        opacity: 1; 
-        transform: scale(1);
-      }
-      50% { 
-        opacity: 0.35; 
-        transform: scale(0.85);
-      }
-    }
-
-    .status-text-wrapper {
-      display: flex;
-      align-items: center;
-      overflow: visible;
-      width: 0;
-    }
-
-    .status-text {
-      color: #1784d1;
-      font-family: ui-monospace, "SF Mono", Menlo, Monaco, "Courier New", monospace;
-      white-space: nowrap;
-      display: inline-block;
-      flex-shrink: 0;
-      min-height: 1em;
-      line-height: 1;
-    }
-
-    .cursor {
-      width: 2px;
-      height: 1em;
-      background-color: #1784d1;
-      flex-shrink: 0;
-      animation: blink-caret 0.75s step-end infinite;
-      animation-delay: 0.1s;
-      animation-fill-mode: forwards;
-      margin-left: 4px;
-    }
-
-    @keyframes blink-caret {
-      from, to { opacity: 0; }
-      50% { opacity: 1; }
+    .toggle-btn:hover {
+      transform: rotate(20deg);
     }
   </style>
-
+</head>
+<body>
   <div class="container">
-    <h1 class="name"><a href="https://briancrink.com" class="name-link">Brian Crink</a></h1>
-    
-    <div class="status">
-      <div class="status-pill">
-        <span class="status-dot"></span>
-        
-        <div class="status-text-wrapper">
-          <span class="status-text"></span>
-          <span class="cursor"></span>
+    <div class="header">
+      <div class="site-nav">
+        <p class="site-link">
+          <a href="https://portal.briancrink.com" class="site-nav-link portal">Portal</a>
+          <span class="nav-dot" aria-hidden="true">•</span>
+          <a href="https://site.briancrink.com/map" class="site-nav-link map">Site Map</a>
+        </p>
+      </div>
+      <div class="identity">
+        <div class="identity-inline">
+          <h1 class="name"><a href="https://briancrink.com" class="name-link">Brian Crink</a></h1>
+          <img src="../resources/images/profile/developer_emoji.png" alt="" class="dev-image-mini" draggable="false" data-fallback-src="https://raw.githubusercontent.com/briancrink/resources.briancrink.com/main/images/profile/developer_emoji.png" onerror="if(!this.dataset.fell && this.dataset.fallbackSrc){this.dataset.fell='1';this.src=this.dataset.fallbackSrc;}">
         </div>
       </div>
     </div>
 
-    <img src="../resources/images/illustration/developer.jpg" alt="Software Developer" class="dev-image" draggable="false">
+    <hr class="divider">
+
+    <div class="links">
+      <div class="root-links">
+        <a href="https://briancrink.com" class="sub-domain-link" target="_blank">briancrink.com</a>
+        <a href="https://briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="academia-links">
+        <a href="https://academia.briancrink.com" class="sub-domain-link" target="_blank">academia.briancrink.com</a>
+        <a href="https://academia.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://academia.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://academia.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://academia.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://academia.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://academia.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://academia.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://academia.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://academia.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://academia.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://academia.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://academia.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="api-links">
+        <a href="https://api.briancrink.com" class="sub-domain-link" target="_blank">api.briancrink.com</a>
+        <a href="https://api.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://api.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://api.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://api.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://api.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://api.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://api.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://api.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://api.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://api.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://api.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://api.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="app-links">
+        <a href="https://app.briancrink.com" class="sub-domain-link" target="_blank">app.briancrink.com</a>
+        <a href="https://app.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://app.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://app.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://app.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://app.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://app.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://app.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://app.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://app.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://app.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://app.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://app.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="apps-links">
+        <a href="https://apps.briancrink.com" class="sub-domain-link" target="_blank">apps.briancrink.com</a>
+        <a href="https://apps.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://apps.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://apps.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://apps.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://apps.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://apps.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://apps.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://apps.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://apps.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://apps.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://apps.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://apps.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="business-links">
+        <a href="https://business.briancrink.com" class="sub-domain-link" target="_blank">business.briancrink.com</a>
+        <a href="https://business.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://business.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://business.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://business.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://business.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://business.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://business.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://business.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://business.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://business.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://business.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://business.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="career-links">
+        <a href="https://career.briancrink.com" class="sub-domain-link" target="_blank">career.briancrink.com</a>
+        <a href="https://career.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://career.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://career.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://career.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://career.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://career.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://career.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://career.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://career.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://career.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://career.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://career.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="contact-links">
+        <a href="https://contact.briancrink.com" class="sub-domain-link" target="_blank">contact.briancrink.com</a>
+        <a href="https://contact.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://contact.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://contact.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://contact.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://contact.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://contact.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://contact.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://contact.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://contact.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://contact.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://contact.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://contact.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="dev-links">
+        <a href="https://dev.briancrink.com" class="sub-domain-link" target="_blank">dev.briancrink.com</a>
+        <a href="https://dev.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://dev.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://dev.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://dev.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://dev.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://dev.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://dev.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://dev.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://dev.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://dev.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://dev.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://dev.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="feed-links">
+        <a href="https://feed.briancrink.com" class="sub-domain-link" target="_blank">feed.briancrink.com</a>
+        <a href="https://feed.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://feed.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://feed.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://feed.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://feed.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://feed.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://feed.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://feed.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://feed.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://feed.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://feed.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://feed.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="hire-links">
+        <a href="https://hire.briancrink.com" class="sub-domain-link" target="_blank">hire.briancrink.com</a>
+        <a href="https://hire.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://hire.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://hire.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://hire.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://hire.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://hire.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://hire.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://hire.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://hire.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://hire.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://hire.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://hire.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="home-links">
+        <a href="https://home.briancrink.com" class="sub-domain-link" target="_blank">home.briancrink.com</a>
+        <a href="https://home.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://home.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://home.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://home.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://home.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://home.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://home.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://home.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://home.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://home.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://home.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://home.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="jobs-links">
+        <a href="https://jobs.briancrink.com" class="sub-domain-link" target="_blank">jobs.briancrink.com</a>
+        <a href="https://jobs.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://jobs.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://jobs.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://jobs.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://jobs.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://jobs.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://jobs.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://jobs.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://jobs.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://jobs.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://jobs.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://jobs.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="os-links">
+        <a href="https://os.briancrink.com" class="sub-domain-link" target="_blank">os.briancrink.com</a>
+        <a href="https://os.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://os.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://os.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://os.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://os.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://os.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://os.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://os.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://os.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://os.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://os.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://os.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="portal-links">
+        <a href="https://portal.briancrink.com" class="sub-domain-link" target="_blank">portal.briancrink.com</a>
+        <a href="https://portal.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://portal.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://portal.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://portal.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://portal.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://portal.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://portal.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://portal.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://portal.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://portal.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://portal.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://portal.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="resources-links">
+        <a href="https://resources.briancrink.com" class="sub-domain-link" target="_blank">resources.briancrink.com</a>
+        <a href="https://resources.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://resources.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://resources.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://resources.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://resources.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://resources.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://resources.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://resources.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://resources.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://resources.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://resources.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://resources.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="shop-links">
+        <a href="https://shop.briancrink.com" class="sub-domain-link" target="_blank">shop.briancrink.com</a>
+        <a href="https://shop.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://shop.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://shop.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://shop.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://shop.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://shop.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://shop.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://shop.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://shop.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://shop.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://shop.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://shop.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="site-links">
+        <a href="https://site.briancrink.com" class="sub-domain-link" target="_blank">site.briancrink.com</a>
+        <a href="https://site.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://site.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://site.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://site.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://site.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://site.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://site.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://site.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://site.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://site.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://site.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://site.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="social-links">
+        <a href="https://social.briancrink.com" class="sub-domain-link" target="_blank">social.briancrink.com</a>
+        <a href="https://social.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://social.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://social.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://social.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://social.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://social.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://social.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://social.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://social.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://social.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://social.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://social.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="space-links">
+        <a href="https://space.briancrink.com" class="sub-domain-link" target="_blank">space.briancrink.com</a>
+        <a href="https://space.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://space.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://space.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://space.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://space.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://space.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://space.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://space.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://space.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://space.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://space.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://space.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="store-links">
+        <a href="https://store.briancrink.com" class="sub-domain-link" target="_blank">store.briancrink.com</a>
+        <a href="https://store.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://store.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://store.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://store.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://store.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://store.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://store.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://store.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://store.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://store.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://store.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://store.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="support-links">
+        <a href="https://support.briancrink.com" class="sub-domain-link" target="_blank">support.briancrink.com</a>
+        <a href="https://support.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://support.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://support.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://support.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://support.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://support.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://support.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://support.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://support.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://support.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://support.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://support.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+      <div class="tech-links">
+        <a href="https://tech.briancrink.com" class="sub-domain-link" target="_blank">tech.briancrink.com</a>
+        <a href="https://tech.briancrink.com/contact" class="sub-page-link" target="_blank">Contact</a>
+        <a href="https://tech.briancrink.com/dev" class="sub-page-link" target="_blank">Development</a>
+        <a href="https://tech.briancrink.com/feed" class="sub-page-link" target="_blank">Newsfeed</a>
+        <a href="https://tech.briancrink.com/resume" class="sub-page-link" target="_blank">Resume</a>
+        <a href="https://tech.briancrink.com/shop" class="sub-page-link" target="_blank">Shop</a>
+        <a href="https://tech.briancrink.com/sitemap" class="sub-page-link" target="_blank">Site Map</a>
+        <a href="https://tech.briancrink.com/store" class="sub-page-link" target="_blank">Storefront</a>
+        <a href="https://tech.briancrink.com/event" class="sub-page-link" target="_blank">Events</a>
+        <a href="https://tech.briancrink.com/hire" class="sub-page-link" target="_blank">Employment</a>
+        <a href="https://tech.briancrink.com/site" class="sub-page-link" target="_blank">Site</a>
+        <a href="https://tech.briancrink.com/social" class="sub-page-link" target="_blank">Social Media</a>
+        <a href="https://tech.briancrink.com/support" class="sub-page-link" target="_blank">Support</a>
+      </div>
+    </div>
+
+    <button class="toggle-btn" id="theme-toggle" type="button" tabindex="-1">
+      <img src="../resources/images/icons/sun.png" alt="Light mode" width="28" height="28">
+    </button>
   </div>
 
   <script>
-    function typeWriter(element, text, speed = 85) {
-      return new Promise((resolve) => {
-        element.textContent = '';
-        let i = 0;
+    const toggleBtn = document.getElementById('theme-toggle');
+    const body = document.body;
 
-        const interval = setInterval(() => {
-          if (i < text.length) {
-            element.textContent += text.charAt(i);
-            i++;
-          } else {
-            clearInterval(interval);
-            resolve();
-          }
-        }, speed);
-      });
-    }
+    toggleBtn.addEventListener('click', () => {
+      body.classList.toggle('light');
+      if (body.classList.contains('light')) {
+        toggleBtn.innerHTML = `<img src="../resources/images/icons/moon.png" alt="Dark mode" width="28" height="28">`;
+      } else {
+        toggleBtn.innerHTML = `<img src="../resources/images/icons/sun.png" alt="Light mode" width="28" height="28">`;
+      }
+    });
 
-    async function startTypewriter() {
-      const wrapper = document.querySelector('.status-text-wrapper');
-      const statusText = document.querySelector('.status-text');
-      if (!wrapper || !statusText) return;
+    toggleBtn.addEventListener('mouseenter', () => {
+      if (body.classList.contains('light')) {
+        toggleBtn.innerHTML = `<img src="../resources/images/icons/moon-hover.png" alt="Dark mode" width="28" height="28">`;
+      } else {
+        toggleBtn.innerHTML = `<img src="../resources/images/icons/sun-hover.png" alt="Light mode" width="28" height="28">`;
+      }
+    });
 
-      const fullText = "Planned Development";
-
-      const measurer = document.createElement('span');
-      measurer.style.position = 'absolute';
-      measurer.style.visibility = 'hidden';
-      measurer.style.whiteSpace = 'nowrap';
-      measurer.style.font = getComputedStyle(statusText).font;
-      measurer.textContent = fullText;
-      document.body.appendChild(measurer);
-
-      const textWidth = measurer.offsetWidth;
-      document.body.removeChild(measurer);
-
-      const extraSpaceForCursor = 14;
-      wrapper.style.width = `${textWidth + extraSpaceForCursor}px`;
-
-      await typeWriter(statusText, fullText, 85);
-    }
-
-    function restartTypewriter() {
-      const statusText = document.querySelector('.status-text');
-      if (!statusText) return;
-
-      startTypewriter().then(() => {
-        setTimeout(restartTypewriter, 5000);
-      });
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      setTimeout(restartTypewriter, 300);
+    toggleBtn.addEventListener('mouseleave', () => {
+      if (body.classList.contains('light')) {
+        toggleBtn.innerHTML = `<img src="../resources/images/icons/moon.png" alt="Dark mode" width="28" height="28">`;
+      } else {
+        toggleBtn.innerHTML = `<img src="../resources/images/icons/sun.png" alt="Light mode" width="28" height="28">`;
+      }
     });
   </script>
-
 </body>
 </html>
