@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Career Path – Style Previews</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0a0c;
+      color: #e5e5e5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 32px 20px 64px;
+    }
+    h1 {
+      font-size: 1.1rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.45);
+      margin-bottom: 8px;
+    }
+    .intro {
+      font-size: 0.9rem;
+      color: rgba(255,255,255,0.35);
+      margin-bottom: 36px;
+      max-width: 520px;
+      line-height: 1.5;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 28px;
+      max-width: 1100px;
+    }
+    .card {
+      background: #000;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .card-label {
+      padding: 14px 16px 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #fff;
+    }
+    .card-desc {
+      padding: 0 16px 12px;
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.4);
+      line-height: 1.4;
+    }
+    .stage {
+      position: relative;
+      height: 280px;
+      background:
+        linear-gradient(to right, rgba(20,20,20,0.9) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(20,20,20,0.9) 1px, transparent 1px);
+      background-size: 24px 24px;
+      background-color: #000;
+    }
+    .stage::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle, #1a1a1a 1.5px, transparent 1.5px);
+      background-size: 24px 24px;
+      background-position: 12px 12px;
+      opacity: 0.7;
+      pointer-events: none;
+    }
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <h1>Career path style previews</h1>
+  <p class="intro">
+    Each card is a looping animation: path emerges on the left, grows right with branches, then the left side fades and a new path starts. Click any card to restart its animation.
+  </p>
+
+  <div class="grid">
+    <div class="card" data-variant="A">
+      <div class="card-label">A — Sparse orthogonal</div>
+      <div class="card-desc">Few long branches. Strict grid. Thin stroke. Minimal and clean.</div>
+      <div class="stage"><canvas></canvas></div>
+    </div>
+
+    <div class="card" data-variant="B">
+      <div class="card-label">B — Root system</div>
+      <div class="card-desc">More forks, shorter tips. Still orthogonal. Denser branching near the end.</div>
+      <div class="stage"><canvas></canvas></div>
+    </div>
+
+    <div class="card" data-variant="C">
+      <div class="card-label">C — Soft curves</div>
+      <div class="card-desc">Bezier curves instead of hard grid. Organic root feel. Not locked to squares.</div>
+      <div class="stage"><canvas></canvas></div>
+    </div>
+
+    <div class="card" data-variant="D">
+      <div class="card-label">D — Single trunk + rare forks</div>
+      <div class="card-desc">One dominant path with only 2–3 careful branches. Very restrained.</div>
+      <div class="stage"><canvas></canvas></div>
+    </div>
+
+    <div class="card" data-variant="E">
+      <div class="card-label">E — Circuit trace</div>
+      <div class="card-desc">Right angles only. Longer horizontal runs. Technical / schematic look.</div>
+      <div class="stage"><canvas></canvas></div>
+    </div>
+
+    <div class="card" data-variant="F">
+      <div class="card-label">F — Fading trail</div>
+      <div class="card-desc">Orthogonal path with a soft trailing fade behind the leading tip (comet style).</div>
+      <div class="stage"><canvas></canvas></div>
+    </div>
+  </div>
+
+  <script>
+    const GRID = 24;
+
+    function resizeCanvas(canvas) {
+      const stage = canvas.parentElement;
+      const w = stage.clientWidth;
+      const h = stage.clientHeight;
+      canvas.width = w * devicePixelRatio;
+      canvas.height = h * devicePixelRatio;
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+      return { ctx, w, h };
+    }
+
+    // Shared loop controller
+    function makeLoop(drawFn) {
+      let progress = 0;
+      let fade = 0;
+      let phase = 'grow'; // grow | hold | fade | reset
+      let hold = 0;
+      let segments = [];
+      let gen = null;
+
+      return {
+        setGenerator(fn) { gen = fn; segments = fn(); },
+        restart() {
+          progress = 0; fade = 0; phase = 'grow'; hold = 0;
+          if (gen) segments = gen();
+        },
+        tick(speed = 0.0022) {
+          if (phase === 'grow') {
+            progress += speed;
+            if (progress >= 1) { progress = 1; phase = 'hold'; hold = 0; }
+          } else if (phase === 'hold') {
+            hold++;
+            if (hold > 55) phase = 'fade';
+          } else if (phase === 'fade') {
+            fade += 0.008;
+            if (fade >= 1) {
+              phase = 'grow';
+              progress = 0;
+              fade = 0;
+              if (gen) segments = gen();
+            }
+          }
+          return { segments, progress, fade };
+        }
+      };
+    }
+
+    function strokeSeg(ctx, seg, t0, t1, alpha, width) {
+      if (t1 <= 0 || t0 >= 1) return;
+      const a = Math.max(0, t0);
+      const b = Math.min(1, t1);
+      const x1 = seg.x1 + (seg.x2 - seg.x1) * a;
+      const y1 = seg.y1 + (seg.y2 - seg.y1) * a;
+      const x2 = seg.x1 + (seg.x2 - seg.x1) * b;
+      const y2 = seg.y1 + (seg.y2 - seg.y1) * b;
+      ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+
+    function alphaWithFade(midX, w, fade, base) {
+      if (fade <= 0) return base;
+      const zone = w * 0.55;
+      const edge = fade * zone;
+      if (midX < edge) return base * Math.max(0, 1 - (edge - midX) / (zone * 0.35));
+      return base;
+    }
+
+    // ---------- Generators ----------
+
+    // A: sparse orthogonal
+    function genA(w, h) {
+      const cols = Math.floor(w / GRID);
+      const rows = Math.floor(h / GRID);
+      const occupied = new Set();
+      const key = (c, r) => c + ',' + r;
+      let row = Math.floor(rows * 0.45);
+      let col = 0;
+      const cells = [{ col, row }];
+      occupied.add(key(col, row));
+      while (col < cols - 1) {
+        col++;
+        cells.push({ col, row });
+        occupied.add(key(col, row));
+        if (Math.random() < 0.12 && col < cols - 1) {
+          const dir = Math.random() > 0.5 ? 1 : -1;
+          const nr = row + dir;
+          if (nr >= 2 && nr <= rows - 3 && !occupied.has(key(col, nr))) {
+            row = nr;
+            cells.push({ col, row });
+            occupied.add(key(col, row));
+          }
+        }
+      }
+      const segs = [];
+      for (let i = 0; i < cells.length - 1; i++) {
+        const a = cells[i], b = cells[i + 1];
+        segs.push({
+          x1: a.col * GRID, y1: a.row * GRID,
+          x2: b.col * GRID, y2: b.row * GRID,
+          start: i / (cells.length - 1),
+          end: (i + 1) / (cells.length - 1)
+        });
+      }
+      // 2–3 long branches
+      for (let b = 0; b < 3; b++) {
+        const t = 0.2 + b * 0.25;
+        const idx = Math.min(cells.length - 2, Math.floor(t * (cells.length - 1)));
+        const o = cells[idx];
+        let dir = Math.random() > 0.5 ? 1 : -1;
+        if (occupied.has(key(o.col, o.row + dir))) dir = -dir;
+        let bc = o.col, br = o.row;
+        const branch = [{ col: bc, row: br }];
+        for (let s = 0; s < 3 + Math.floor(Math.random() * 2); s++) {
+          const nr = br + dir;
+          if (nr < 2 || nr > rows - 3 || occupied.has(key(bc, nr))) break;
+          br = nr;
+          branch.push({ col: bc, row: br });
+          occupied.add(key(bc, br));
+        }
+        if (branch.length < 2) continue;
+        if (Math.random() > 0.4) {
+          for (let s = 0; s < 2; s++) {
+            if (bc + 1 >= cols - 1 || occupied.has(key(bc + 1, br))) break;
+            bc++;
+            branch.push({ col: bc, row: br });
+            occupied.add(key(bc, br));
+          }
+        }
+        const bs = t, span = 0.12;
+        for (let s = 0; s < branch.length - 1; s++) {
+          const a = branch[s], c = branch[s + 1];
+          const lt = s / (branch.length - 1);
+          segs.push({
+            x1: a.col * GRID, y1: a.row * GRID,
+            x2: c.col * GRID, y2: c.row * GRID,
+            start: bs + lt * span,
+            end: bs + ((s + 1) / (branch.length - 1)) * span
+          });
+        }
+      }
+      return segs.sort((a, b) => a.start - b.start);
+    }
+
+    // B: denser root system (orthogonal)
+    function genB(w, h) {
+      const cols = Math.floor(w / GRID);
+      const rows = Math.floor(h / GRID);
+      const occupied = new Set();
+      const key = (c, r) => c + ',' + r;
+      let row = Math.floor(rows * 0.5);
+      let col = 0;
+      const cells = [{ col, row }];
+      occupied.add(key(col, row));
+      while (col < cols - 1) {
+        col++;
+        cells.push({ col, row });
+        occupied.add(key(col, row));
+        if (Math.random() < 0.2 && col < cols - 1) {
+          const dir = Math.random() > 0.5 ? 1 : -1;
+          const nr = row + dir;
+          if (nr >= 1 && nr <= rows - 2 && !occupied.has(key(col, nr))) {
+            row = nr;
+            cells.push({ col, row });
+            occupied.add(key(col, row));
+          }
+        }
+      }
+      const segs = [];
+      for (let i = 0; i < cells.length - 1; i++) {
+        const a = cells[i], b = cells[i + 1];
+        segs.push({
+          x1: a.col * GRID, y1: a.row * GRID,
+          x2: b.col * GRID, y2: b.row * GRID,
+          start: i / (cells.length - 1),
+          end: (i + 1) / (cells.length - 1)
+        });
+      }
+      for (let b = 0; b < 6; b++) {
+        const t = 0.12 + b * 0.12;
+        const idx = Math.min(cells.length - 2, Math.floor(t * (cells.length - 1)));
+        const o = cells[idx];
+        let dir = (b % 2 === 0) ? 1 : -1;
+        if (occupied.has(key(o.col, o.row + dir))) dir = -dir;
+        let bc = o.col, br = o.row;
+        const branch = [{ col: bc, row: br }];
+        const len = 2 + Math.floor(Math.random() * 3);
+        for (let s = 0; s < len; s++) {
+          const nr = br + dir;
+          if (nr < 1 || nr > rows - 2 || occupied.has(key(bc, nr))) break;
+          br = nr;
+          branch.push({ col: bc, row: br });
+          occupied.add(key(bc, br));
+        }
+        if (branch.length < 2) continue;
+        if (Math.random() > 0.35) {
+          for (let s = 0; s < 1 + Math.floor(Math.random() * 2); s++) {
+            if (bc + 1 >= cols - 1 || occupied.has(key(bc + 1, br))) break;
+            bc++;
+            branch.push({ col: bc, row: br });
+            occupied.add(key(bc, br));
+          }
+        }
+        const bs = t, span = 0.1;
+        for (let s = 0; s < branch.length - 1; s++) {
+          const a = branch[s], c = branch[s + 1];
+          const lt = s / (branch.length - 1);
+          segs.push({
+            x1: a.col * GRID, y1: a.row * GRID,
+            x2: c.col * GRID, y2: c.row * GRID,
+            start: bs + lt * span,
+            end: bs + ((s + 1) / (branch.length - 1)) * span
+          });
+        }
+      }
+      return segs.sort((a, b) => a.start - b.start);
+    }
+
+    // C: soft bezier curves
+    function genC(w, h) {
+      const segs = [];
+      const startY = h * (0.4 + Math.random() * 0.2);
+      // Sample a smooth main curve into short segments
+      const steps = 40;
+      let px = 0, py = startY;
+      const main = [{ x: px, y: py }];
+      let angle = 0;
+      for (let i = 1; i <= steps; i++) {
+        angle += (Math.random() - 0.5) * 0.28;
+        angle *= 0.88;
+        px = (i / steps) * (w + 10);
+        py += Math.sin(angle) * (h * 0.018);
+        py = Math.max(h * 0.15, Math.min(h * 0.85, py));
+        main.push({ x: px, y: py });
+      }
+      for (let i = 0; i < main.length - 1; i++) {
+        segs.push({
+          x1: main[i].x, y1: main[i].y,
+          x2: main[i + 1].x, y2: main[i + 1].y,
+          start: i / (main.length - 1),
+          end: (i + 1) / (main.length - 1)
+        });
+      }
+      // Curved branches
+      for (let b = 0; b < 4; b++) {
+        const t = 0.18 + b * 0.18;
+        const idx = Math.floor(t * (main.length - 1));
+        const o = main[idx];
+        const dir = (b % 2 === 0) ? 1 : -1;
+        let x = o.x, y = o.y;
+        let a = dir * (0.5 + Math.random() * 0.6);
+        const branch = [{ x, y }];
+        const n = 8 + Math.floor(Math.random() * 6);
+        for (let s = 0; s < n; s++) {
+          a += (Math.random() - 0.5) * 0.35;
+          x += Math.cos(a) * 8 + 4;
+          y += Math.sin(a) * 10;
+          y = Math.max(8, Math.min(h - 8, y));
+          branch.push({ x, y });
+        }
+        const bs = t, span = 0.14;
+        for (let s = 0; s < branch.length - 1; s++) {
+          const lt = s / (branch.length - 1);
+          segs.push({
+            x1: branch[s].x, y1: branch[s].y,
+            x2: branch[s + 1].x, y2: branch[s + 1].y,
+            start: bs + lt * span,
+            end: bs + ((s + 1) / (branch.length - 1)) * span
+          });
+        }
+      }
+      return segs.sort((a, b) => a.start - b.start);
+    }
+
+    // D: single trunk, rare forks
+    function genD(w, h) {
+      const cols = Math.floor(w / GRID);
+      const rows = Math.floor(h / GRID);
+      const occupied = new Set();
+      const key = (c, r) => c + ',' + r;
+      let row = Math.floor(rows * 0.5);
+      let col = 0;
+      const cells = [{ col, row }];
+      occupied.add(key(col, row));
+      while (col < cols - 1) {
+        col++;
+        cells.push({ col, row });
+        occupied.add(key(col, row));
+        if (Math.random() < 0.08 && col < cols - 1) {
+          const dir = Math.random() > 0.5 ? 1 : -1;
+          const nr = row + dir;
+          if (nr >= 3 && nr <= rows - 4 && !occupied.has(key(col, nr))) {
+            row = nr;
+            cells.push({ col, row });
+            occupied.add(key(col, row));
+          }
+        }
+      }
+      const segs = [];
+      for (let i = 0; i < cells.length - 1; i++) {
+        const a = cells[i], b = cells[i + 1];
+        segs.push({
+          x1: a.col * GRID, y1: a.row * GRID,
+          x2: b.col * GRID, y2: b.row * GRID,
+          start: i / (cells.length - 1),
+          end: (i + 1) / (cells.length - 1)
+        });
+      }
+      // Only 2 branches
+      for (let b = 0; b < 2; b++) {
+        const t = 0.3 + b * 0.3;
+        const idx = Math.min(cells.length - 2, Math.floor(t * (cells.length - 1)));
+        const o = cells[idx];
+        const dir = b === 0 ? -1 : 1;
+        let bc = o.col, br = o.row;
+        const branch = [{ col: bc, row: br }];
+        for (let s = 0; s < 4; s++) {
+          const nr = br + dir;
+          if (nr < 2 || nr > rows - 3 || occupied.has(key(bc, nr))) break;
+          br = nr;
+          branch.push({ col: bc, row: br });
+          occupied.add(key(bc, br));
+        }
+        if (branch.length < 2) continue;
+        for (let s = 0; s < 2; s++) {
+          if (bc + 1 >= cols - 1 || occupied.has(key(bc + 1, br))) break;
+          bc++;
+          branch.push({ col: bc, row: br });
+          occupied.add(key(bc, br));
+        }
+        const bs = t, span = 0.14;
+        for (let s = 0; s < branch.length - 1; s++) {
+          const a = branch[s], c = branch[s + 1];
+          const lt = s / (branch.length - 1);
+          segs.push({
+            x1: a.col * GRID, y1: a.row * GRID,
+            x2: c.col * GRID, y2: c.row * GRID,
+            start: bs + lt * span,
+            end: bs + ((s + 1) / (branch.length - 1)) * span
+          });
+        }
+      }
+      return segs.sort((a, b) => a.start - b.start);
+    }
+
+    // E: circuit trace – long horizontals, sharp verticals
+    function genE(w, h) {
+      const cols = Math.floor(w / GRID);
+      const rows = Math.floor(h / GRID);
+      const occupied = new Set();
+      const key = (c, r) => c + ',' + r;
+      let row = Math.floor(rows * 0.5);
+      let col = 0;
+      const cells = [{ col, row }];
+      occupied.add(key(col, row));
+      while (col < cols - 1) {
+        // Long horizontal runs
+        const run = 2 + Math.floor(Math.random() * 4);
+        for (let i = 0; i < run && col < cols - 1; i++) {
+          col++;
+          cells.push({ col, row });
+          occupied.add(key(col, row));
+        }
+        if (col < cols - 1 && Math.random() < 0.55) {
+          const dir = Math.random() > 0.5 ? 1 : -1;
+          const vlen = 1 + Math.floor(Math.random() * 2);
+          for (let i = 0; i < vlen; i++) {
+            const nr = row + dir;
+            if (nr < 2 || nr > rows - 3 || occupied.has(key(col, nr))) break;
+            row = nr;
+            cells.push({ col, row });
+            occupied.add(key(col, row));
+          }
+        }
+      }
+      const segs = [];
+      for (let i = 0; i < cells.length - 1; i++) {
+        const a = cells[i], b = cells[i + 1];
+        segs.push({
+          x1: a.col * GRID, y1: a.row * GRID,
+          x2: b.col * GRID, y2: b.row * GRID,
+          start: i / (cells.length - 1),
+          end: (i + 1) / (cells.length - 1)
+        });
+      }
+      // A few stub branches
+      for (let b = 0; b < 3; b++) {
+        const t = 0.25 + b * 0.22;
+        const idx = Math.min(cells.length - 2, Math.floor(t * (cells.length - 1)));
+        const o = cells[idx];
+        const dir = (b % 2 === 0) ? 1 : -1;
+        let bc = o.col, br = o.row;
+        const branch = [{ col: bc, row: br }];
+        for (let s = 0; s < 2; s++) {
+          const nr = br + dir;
+          if (nr < 2 || nr > rows - 3 || occupied.has(key(bc, nr))) break;
+          br = nr;
+          branch.push({ col: bc, row: br });
+          occupied.add(key(bc, br));
+        }
+        if (branch.length < 2) continue;
+        const bs = t, span = 0.08;
+        for (let s = 0; s < branch.length - 1; s++) {
+          const a = branch[s], c = branch[s + 1];
+          const lt = s / (branch.length - 1);
+          segs.push({
+            x1: a.col * GRID, y1: a.row * GRID,
+            x2: c.col * GRID, y2: c.row * GRID,
+            start: bs + lt * span,
+            end: bs + ((s + 1) / (branch.length - 1)) * span
+          });
+        }
+      }
+      return segs.sort((a, b) => a.start - b.start);
+    }
+
+    // F: same as sparse orthogonal but drawn with trail emphasis in the draw loop
+    function genF(w, h) { return genA(w, h); }
+
+    // ---------- Wire up cards ----------
+    const variants = {
+      A: { gen: genA, width: 1.1, speed: 0.0020, trail: false },
+      B: { gen: genB, width: 1.05, speed: 0.0020, trail: false },
+      C: { gen: genC, width: 1.2, speed: 0.0018, trail: false },
+      D: { gen: genD, width: 1.25, speed: 0.0017, trail: false },
+      E: { gen: genE, width: 1.15, speed: 0.0019, trail: false },
+      F: { gen: genF, width: 1.1, speed: 0.0020, trail: true }
+    };
+
+    document.querySelectorAll('.card').forEach(card => {
+      const id = card.dataset.variant;
+      const cfg = variants[id];
+      const canvas = card.querySelector('canvas');
+      let { ctx, w, h } = resizeCanvas(canvas);
+      const loop = makeLoop();
+      loop.setGenerator(() => cfg.gen(w, h));
+
+      card.addEventListener('click', () => loop.restart());
+
+      window.addEventListener('resize', () => {
+        ({ ctx, w, h } = resizeCanvas(canvas));
+        loop.setGenerator(() => cfg.gen(w, h));
+        loop.restart();
+      });
+
+      function frame() {
+        const { segments, progress, fade } = loop.tick(cfg.speed);
+        ctx.clearRect(0, 0, w, h);
+
+        for (const seg of segments) {
+          if (progress < seg.start) continue;
+          const local = progress >= seg.end
+            ? 1
+            : (progress - seg.start) / (seg.end - seg.start);
+          const midX = (seg.x1 + seg.x2) / 2;
+          let alpha = alphaWithFade(midX, w, fade, 0.8);
+
+          if (cfg.trail) {
+            // Soft trail: older segments (lower start) slightly dimmer relative to tip
+            const age = Math.max(0, progress - seg.end);
+            alpha *= Math.max(0.25, 1 - age * 1.2);
+          }
+
+          if (alpha < 0.02) continue;
+          strokeSeg(ctx, seg, 0, local, alpha, cfg.width);
+        }
+        requestAnimationFrame(frame);
+      }
+      frame();
+    });
+  </script>
+</body>
+</html>

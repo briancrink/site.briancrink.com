@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal — Reference-Matched Neon Frame</title>
+  <style>
+    @property --spin {
+      syntax: '<angle>';
+      inherits: false;
+      initial-value: 0deg;
+    }
+
+    @keyframes spin {
+      to { --spin: 360deg; }
+    }
+
+    @keyframes breathe {
+      0%, 100% { opacity: 0.7; filter: blur(18px); }
+      50%      { opacity: 1;   filter: blur(26px); }
+    }
+
+    @keyframes breatheCore {
+      0%, 100% { opacity: 0.85; }
+      50%      { opacity: 1; }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100dvh;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 48px;
+      padding: 48px 20px;
+      background: #030712;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #fff;
+    }
+
+    .label {
+      width: 100%;
+      text-align: center;
+      font-size: 0.8rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: -12px;
+    }
+
+    .shell {
+      position: relative;
+      width: min(300px, 85vw);
+      margin: 12px;
+    }
+
+    /* Soft outer bloom — color haze into black (Portal 2 / 6) */
+    .bloom {
+      position: absolute;
+      inset: -2px;
+      border-radius: 26px;
+      z-index: 0;
+      pointer-events: none;
+      background: conic-gradient(
+        from var(--spin),
+        #22d3ee,
+        #a78bfa,
+        #f472b6,
+        #22d3ee
+      );
+      filter: blur(22px);
+      opacity: 0.85;
+      animation: spin 8s linear infinite, breathe 5s ease-in-out infinite;
+    }
+
+    /* Brighter mid glow */
+    .bloom-mid {
+      position: absolute;
+      inset: -1px;
+      border-radius: 25px;
+      z-index: 0;
+      pointer-events: none;
+      background: conic-gradient(
+        from var(--spin),
+        #67e8f9,
+        #c4b5fd,
+        #f9a8d4,
+        #67e8f9
+      );
+      filter: blur(10px);
+      opacity: 0.9;
+      animation: spin 6s linear infinite, breatheCore 5s ease-in-out infinite;
+    }
+
+    /* Neon core rim — hot edge (Portal 2 / 24 / 26) */
+    .rim {
+      position: absolute;
+      inset: -3px;
+      border-radius: 27px;
+      z-index: 1;
+      pointer-events: none;
+      background: conic-gradient(
+        from var(--spin),
+        #ecfeff 0%,
+        #22d3ee 18%,
+        #818cf8 38%,
+        #e879f9 58%,
+        #22d3ee 78%,
+        #ecfeff 100%
+      );
+      animation: spin 5s linear infinite;
+      padding: 2.5px;
+      -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      box-shadow:
+        0 0 8px 1px rgba(34, 211, 238, 0.9),
+        0 0 18px 2px rgba(167, 139, 250, 0.55);
+    }
+
+    .window {
+      position: relative;
+      z-index: 2;
+      min-height: 400px;
+      border-radius: 24px;
+      overflow: hidden;
+      padding: 28px 22px;
+      display: flex;
+      flex-direction: column;
+      background: #0a0f1a;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .window h2 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .window p {
+      font-size: 0.95rem;
+      color: rgba(255,255,255,0.75);
+    }
+
+    /* Life — cyan / sky bias */
+    .life .bloom {
+      background: conic-gradient(from var(--spin), #38bdf8, #e0f2fe, #22d3ee, #38bdf8);
+    }
+    .life .bloom-mid {
+      background: conic-gradient(from var(--spin), #7dd3fc, #f0f9ff, #67e8f9, #7dd3fc);
+    }
+    .life .rim {
+      background: conic-gradient(from var(--spin), #f0f9ff, #38bdf8, #7dd3fc, #e0f2fe, #f0f9ff);
+      box-shadow:
+        0 0 8px 1px rgba(56, 189, 248, 0.95),
+        0 0 20px 3px rgba(125, 211, 252, 0.5);
+    }
+    .life .window {
+      background: linear-gradient(180deg, #38bdf8 0%, #0ea5e9 50%, #0369a1 100%);
+      border-color: transparent;
+    }
+
+    /* Build — green energy */
+    .build .bloom {
+      background: conic-gradient(from var(--spin), #4ade80, #bbf7d0, #22c55e, #4ade80);
+    }
+    .build .bloom-mid {
+      background: conic-gradient(from var(--spin), #86efac, #f0fdf4, #4ade80, #86efac);
+    }
+    .build .rim {
+      background: conic-gradient(from var(--spin), #f0fdf4, #4ade80, #86efac, #bbf7d0, #f0fdf4);
+      box-shadow:
+        0 0 8px 1px rgba(74, 222, 128, 0.95),
+        0 0 20px 3px rgba(134, 239, 172, 0.5);
+    }
+    .build .window {
+      background:
+        linear-gradient(to right, rgba(187,247,208,0.25) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(187,247,208,0.25) 1px, transparent 1px),
+        #15803d;
+      background-size: 24px 24px, 24px 24px, auto;
+    }
+
+    /* Chromatic — Portal 5 / 6 energy */
+    .chroma .bloom {
+      background: conic-gradient(from var(--spin), #ff006e, #8338ec, #3a86ff, #06d6a0, #ffbe0b, #ff006e);
+    }
+    .chroma .bloom-mid {
+      background: conic-gradient(from var(--spin), #ff4d6d, #c77dff, #4cc9f0, #80ed99, #ffd60a, #ff4d6d);
+    }
+    .chroma .rim {
+      background: conic-gradient(from var(--spin), #fff, #ff006e, #8338ec, #3a86ff, #06d6a0, #ffbe0b, #fff);
+      box-shadow:
+        0 0 10px 1px rgba(255, 255, 255, 0.7),
+        0 0 22px 3px rgba(131, 56, 236, 0.55);
+    }
+    .chroma .window { background: #0b1020; }
+
+    /* Commerce — warm / Portal 23 gold-orange */
+    .commerce .bloom {
+      background: conic-gradient(from var(--spin), #fb923c, #fde68a, #ea580c, #fb923c);
+    }
+    .commerce .bloom-mid {
+      background: conic-gradient(from var(--spin), #fdba74, #fff7ed, #f97316, #fdba74);
+    }
+    .commerce .rim {
+      background: conic-gradient(from var(--spin), #fff7ed, #fb923c, #fdba74, #fde68a, #fff7ed);
+      box-shadow:
+        0 0 8px 1px rgba(251, 146, 60, 0.95),
+        0 0 20px 3px rgba(253, 186, 116, 0.5);
+    }
+    .commerce .window { background: #ea580c; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .bloom, .bloom-mid, .rim { animation: none; }
+      .bloom { filter: blur(20px); opacity: 0.8; }
+    }
+  </style>
+</head>
+<body>
+  <div class="label">Life · neon core + soft cyan bloom</div>
+  <div class="shell life">
+    <div class="bloom" aria-hidden="true"></div>
+    <div class="bloom-mid" aria-hidden="true"></div>
+    <div class="rim" aria-hidden="true"></div>
+    <div class="window">
+      <h2>Life</h2>
+      <p>Reference-style portal frame</p>
+    </div>
+  </div>
+
+  <div class="label">Build · neon core + green bloom</div>
+  <div class="shell build">
+    <div class="bloom" aria-hidden="true"></div>
+    <div class="bloom-mid" aria-hidden="true"></div>
+    <div class="rim" aria-hidden="true"></div>
+    <div class="window">
+      <h2>Build</h2>
+      <p>Reference-style portal frame</p>
+    </div>
+  </div>
+
+  <div class="label">Chromatic · Portal 5 / 6 energy</div>
+  <div class="shell chroma">
+    <div class="bloom" aria-hidden="true"></div>
+    <div class="bloom-mid" aria-hidden="true"></div>
+    <div class="rim" aria-hidden="true"></div>
+    <div class="window">
+      <h2>Chromatic</h2>
+      <p>Rainbow travel on the rim</p>
+    </div>
+  </div>
+
+  <div class="label">Commerce · warm trail energy</div>
+  <div class="shell commerce">
+    <div class="bloom" aria-hidden="true"></div>
+    <div class="bloom-mid" aria-hidden="true"></div>
+    <div class="rim" aria-hidden="true"></div>
+    <div class="window">
+      <h2>Commerce</h2>
+      <p>Gold-orange portal energy</p>
+    </div>
+  </div>
+</body>
+</html>

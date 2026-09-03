@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Career Path – Two Layer Preview</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100dvh;
+      background: #0a0a0c;
+      color: #e5e5e5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+    .label {
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 10px;
+    }
+    .title {
+      font-size: 1.05rem;
+      font-weight: 500;
+      color: rgba(255,255,255,0.85);
+      margin-bottom: 6px;
+    }
+    .desc {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.4);
+      max-width: 420px;
+      text-align: center;
+      line-height: 1.5;
+      margin-bottom: 28px;
+    }
+    .stage {
+      position: relative;
+      width: 100%;
+      max-width: 420px;
+      height: 360px;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.1);
+      background:
+        linear-gradient(to right, rgba(22,22,22,0.95) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(22,22,22,0.95) 1px, transparent 1px);
+      background-size: 24px 24px;
+      background-color: #000;
+    }
+    .stage::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle, #1c1c1c 1.5px, transparent 1.5px);
+      background-size: 24px 24px;
+      background-position: 12px 12px;
+      opacity: 0.75;
+      pointer-events: none;
+    }
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .legend {
+      display: flex;
+      gap: 20px;
+      margin-top: 20px;
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.45);
+    }
+    .legend span {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .swatch {
+      width: 22px;
+      height: 2px;
+      border-radius: 1px;
+    }
+    .swatch.network { background: rgba(255,255,255,0.35); }
+    .swatch.actual { background: rgba(255,255,255,0.95); height: 2.5px; }
+    .hint {
+      margin-top: 14px;
+      font-size: 0.72rem;
+      color: rgba(255,255,255,0.28);
+    }
+  </style>
+</head>
+<body>
+  <div class="label">Preview</div>
+  <div class="title">Two-layer career path</div>
+  <p class="desc">
+    Faint network = possible paths (branches never touch; each runs to top, bottom, or right).<br>
+    Bright line = actual path (stays on the network, always reaches the right edge).
+  </p>
+
+  <div class="stage" id="stage">
+    <canvas id="c"></canvas>
+  </div>
+
+  <div class="legend">
+    <span><i class="swatch network"></i> Possible paths</span>
+    <span><i class="swatch actual"></i> Actual path</span>
+  </div>
+  <div class="hint">Click stage to restart · loops automatically</div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const stage = document.getElementById('stage');
+    const ctx = canvas.getContext('2d');
+    const GRID = 24;
+
+    let W = 0, H = 0;
+    let network = [];   // all branch segments
+    let actual = [];    // single continuous path (subset of network cells)
+    let progress = 0;   // 0→1 network growth
+    let actualProg = 0; // trails slightly behind network
+    let fade = 0;
+    let phase = 'grow';  // grow | hold | fade
+    let hold = 0;
+
+    const GROW = 0.0019;
+    const ACTUAL_SPEED = 0.0019;  // constant linear speed (same as network)
+    const ACTUAL_LAG = 0.32;      // delay before actual path starts
+    const HOLD_FRAMES = 50;
+    const FADE_SPEED = 0.007;
+
+    function resize() {
+      W = stage.clientWidth;
+      H = stage.clientHeight;
+      canvas.width = W * devicePixelRatio;
+      canvas.height = H * devicePixelRatio;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+      build();
+    }
+
+    function key(c, r) { return c + ',' + r; }
+    function parseKey(k) {
+      const [c, r] = k.split(',').map(Number);
+      return { col: c, row: r };
+    }
+
+    // Points may be grid cells {col,row} or explicit pixel ends {x,y, edge:true}
+    function ptX(p) { return p.edge ? p.x : p.col * GRID; }
+    function ptY(p) { return p.edge ? p.y : p.row * GRID; }
+
+    function cellsToSegs(cells, kind, t0, t1) {
+      const segs = [];
+      if (cells.length < 2) return segs;
+      const span = t1 - t0;
+      for (let i = 0; i < cells.length - 1; i++) {
+        const a = cells[i], b = cells[i + 1];
+        segs.push({
+          x1: ptX(a), y1: ptY(a),
+          x2: ptX(b), y2: ptY(b),
+          start: t0 + (i / (cells.length - 1)) * span,
+          end: t0 + ((i + 1) / (cells.length - 1)) * span,
+          kind
+        });
+      }
+      return segs;
+    }
+
+    // Extend last grid cell to the true canvas border it should hit
+    function extendToBorder(cells, cols, rows) {
+      if (cells.length < 1) return cells;
+      const last = cells[cells.length - 1];
+      const c = last.col;
+      const r = last.row;
+      // Right
+      if (c >= cols - 1) {
+        cells.push({ edge: true, x: W, y: r * GRID });
+        return cells;
+      }
+      // Top
+      if (r <= 0) {
+        cells.push({ edge: true, x: c * GRID, y: 0 });
+        return cells;
+      }
+      // Bottom
+      if (r >= rows - 1) {
+        cells.push({ edge: true, x: c * GRID, y: H });
+        return cells;
+      }
+      return cells;
+    }
+
+    // Grow branch until it lands on a border grid cell, then extend to pixel edge.
+    // Never enters occupied cells.
+    function growBranch(startCol, startRow, cols, rows, occupied) {
+      const cells = [{ col: startCol, row: startRow }];
+      let col = startCol;
+      let row = startRow;
+      const maxSteps = cols + rows + 12;
+      let steps = 0;
+
+      while (steps < maxSteps) {
+        steps++;
+        // Stop once we are ON a border cell
+        if (col >= cols - 1 || row <= 0 || row >= rows - 1) break;
+
+        const candidates = [];
+        // Prefer moves that get closer to a border when near one
+        if (col + 1 < cols && !occupied.has(key(col + 1, row))) {
+          candidates.push({ col: col + 1, row, w: 3.5 });
+        }
+        if (row - 1 >= 0 && !occupied.has(key(col, row - 1))) {
+          candidates.push({ col, row: row - 1, w: 1 });
+        }
+        if (row + 1 < rows && !occupied.has(key(col, row + 1))) {
+          candidates.push({ col, row: row + 1, w: 1 });
+        }
+
+        // If no free cell, force toward nearest border through any axis
+        if (!candidates.length) {
+          if (col + 1 < cols) {
+            col = col + 1;
+            cells.push({ col, row });
+            occupied.add(key(col, row));
+            continue;
+          }
+          break;
+        }
+
+        const total = candidates.reduce((s, c) => s + c.w, 0);
+        let r = Math.random() * total;
+        let pick = candidates[0];
+        for (const c of candidates) {
+          r -= c.w;
+          if (r <= 0) { pick = c; break; }
+        }
+        col = pick.col;
+        row = pick.row;
+        cells.push({ col, row });
+        occupied.add(key(col, row));
+      }
+
+      return extendToBorder(cells, cols, rows);
+    }
+
+    function build() {
+      network = [];
+      actual = [];
+      if (W < GRID * 4 || H < GRID * 4) return;
+
+      // Cover full canvas so last grid cell sits on the far edge
+      const cols = Math.max(2, Math.ceil(W / GRID));
+      const rows = Math.max(2, Math.ceil(H / GRID));
+      const occupied = new Set();
+
+      // ---- Trunk: left → right, ends at true right edge ----
+      let row = Math.floor(rows * (0.38 + Math.random() * 0.24));
+      row = Math.max(1, Math.min(rows - 2, row));
+      let col = 0;
+      const main = [{ col, row }];
+      occupied.add(key(col, row));
+
+      while (col < cols - 1) {
+        col += 1;
+        main.push({ col, row });
+        occupied.add(key(col, row));
+        if (Math.random() < 0.15 && col < cols - 1) {
+          const dir = Math.random() > 0.5 ? 1 : -1;
+          const nr = row + dir;
+          if (nr >= 1 && nr <= rows - 2 && !occupied.has(key(col, nr))) {
+            row = nr;
+            main.push({ col, row });
+            occupied.add(key(col, row));
+          }
+        }
+      }
+      // Always extend trunk to the true right edge of the card
+      const mainExtended = main.slice();
+      mainExtended.push({ edge: true, x: W, y: main[main.length - 1].row * GRID });
+      network.push(...cellsToSegs(mainExtended, 'trunk', 0, 1));
+
+      // Graph edges (grid cells only — edge tips are visual)
+      const adj = new Map();
+      function addEdge(a, b) {
+        if (a.edge || b.edge) return;
+        const ka = key(a.col, a.row);
+        const kb = key(b.col, b.row);
+        if (!adj.has(ka)) adj.set(ka, []);
+        if (!adj.has(kb)) adj.set(kb, []);
+        if (!adj.get(ka).includes(kb)) adj.get(ka).push(kb);
+        if (!adj.get(kb).includes(ka)) adj.get(kb).push(ka);
+      }
+      for (let i = 0; i < main.length - 1; i++) addEdge(main[i], main[i + 1]);
+
+      // ---- Branches: never touch; run until top / bottom / right, then to pixel edge ----
+      const branchCount = 4 + Math.floor(Math.random() * 3);
+      for (let b = 0; b < branchCount; b++) {
+        const t = 0.12 + (b / branchCount) * 0.55;
+        const idx = Math.min(main.length - 2, Math.floor(t * (main.length - 1)));
+        const origin = main[idx];
+
+        let dir = Math.random() > 0.5 ? 1 : -1;
+        let sc = origin.col;
+        let sr = origin.row + dir;
+        if (sr < 1 || sr > rows - 2 || occupied.has(key(sc, sr))) {
+          dir = -dir;
+          sr = origin.row + dir;
+        }
+        if (sr < 1 || sr > rows - 2 || occupied.has(key(sc, sr))) continue;
+
+        occupied.add(key(sc, sr));
+        const branchCells = [
+          { col: origin.col, row: origin.row },
+          { col: sc, row: sr }
+        ];
+        addEdge(branchCells[0], branchCells[1]);
+
+        const rest = growBranch(sc, sr, cols, rows, occupied);
+        // rest[0] is sc,sr — already added
+        for (let i = 1; i < rest.length; i++) {
+          const prev = branchCells[branchCells.length - 1];
+          branchCells.push(rest[i]);
+          addEdge(prev, rest[i]);
+        }
+
+        if (branchCells.filter(p => !p.edge).length < 3) continue;
+
+        const bs = t;
+        const span = 0.3 + Math.random() * 0.2;
+        network.push(...cellsToSegs(branchCells, 'branch', bs, Math.min(1, bs + span)));
+      }
+
+      network.sort((a, b) => a.start - b.start);
+
+      // ---- Nodes that can reach rightmost grid column ----
+      const canReachRight = new Set();
+      const queue = [];
+      for (const k of adj.keys()) {
+        const { col: c } = parseKey(k);
+        if (c >= cols - 1) {
+          canReachRight.add(k);
+          queue.push(k);
+        }
+      }
+      while (queue.length) {
+        const cur = queue.shift();
+        for (const n of (adj.get(cur) || [])) {
+          if (!canReachRight.has(n)) {
+            canReachRight.add(n);
+            queue.push(n);
+          }
+        }
+      }
+
+      // ---- Actual path: only on network, never goes backwards, ends at right edge ----
+      const startK = key(main[0].col, main[0].row);
+      const actualCells = [{ col: main[0].col, row: main[0].row }];
+      let curK = startK;
+      const visited = new Set([curK]);
+      const maxWalk = cols * rows * 2;
+
+      for (let step = 0; step < maxWalk; step++) {
+        const { col: cc } = parseKey(curK);
+        if (cc >= cols - 1) break;
+
+        // Never go left (col decreases). Never revisit. Must still reach right.
+        const neighbors = (adj.get(curK) || []).filter(n => {
+          if (!canReachRight.has(n)) return false;
+          if (visited.has(n)) return false;
+          const p = parseKey(n);
+          if (p.col < cc) return false; // no backwards
+          return true;
+        });
+
+        if (!neighbors.length) break;
+
+        // Prefer rightward; vertical (same col) allowed but lower weight
+        const scored = neighbors.map(n => {
+          const p = parseKey(n);
+          let score = p.col > cc ? 3 : 1;
+          return { n, score };
+        });
+        const total = scored.reduce((s, x) => s + x.score, 0);
+        let r = Math.random() * total;
+        let pick = scored[0].n;
+        for (const x of scored) {
+          r -= x.score;
+          if (r <= 0) { pick = x.n; break; }
+        }
+
+        curK = pick;
+        visited.add(curK);
+        actualCells.push(parseKey(curK));
+      }
+
+      // If not on rightmost column, continue forward along trunk only (never back)
+      if (actualCells[actualCells.length - 1].col < cols - 1) {
+        const last = actualCells[actualCells.length - 1];
+        let bestIdx = 0;
+        let bestDist = Infinity;
+        for (let i = 0; i < main.length; i++) {
+          if (main[i].col < last.col) continue; // only forward on trunk
+          const d = Math.abs(main[i].col - last.col) + Math.abs(main[i].row - last.row);
+          if (d < bestDist) { bestDist = d; bestIdx = i; }
+        }
+        for (let i = bestIdx; i < main.length; i++) {
+          const m = main[i];
+          if (m.col < last.col) continue;
+          const prev = actualCells[actualCells.length - 1];
+          if (prev.col === m.col && prev.row === m.row) continue;
+          // Skip if this would move left relative to prev
+          if (m.col < prev.col) continue;
+          actualCells.push({ col: m.col, row: m.row });
+        }
+      }
+
+      // Always extend actual path to the true right edge of the card
+      const lastAct = actualCells[actualCells.length - 1];
+      actualCells.push({
+        edge: true,
+        x: W,
+        y: (lastAct.edge ? lastAct.y : lastAct.row * GRID)
+      });
+
+      actual = cellsToSegs(actualCells, 'actual', 0, 1);
+    }
+
+    function stroke(seg, t0, t1, alpha, width) {
+      if (t1 <= 0 || t0 >= 1) return;
+      const a = Math.max(0, t0);
+      const b = Math.min(1, t1);
+      const x1 = seg.x1 + (seg.x2 - seg.x1) * a;
+      const y1 = seg.y1 + (seg.y2 - seg.y1) * a;
+      const x2 = seg.x1 + (seg.x2 - seg.x1) * b;
+      const y2 = seg.y1 + (seg.y2 - seg.y1) * b;
+      ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+
+    function fadeAlpha(midX, base) {
+      if (fade <= 0) return base;
+      const zone = W * 0.55;
+      const edge = fade * zone;
+      if (midX < edge) return base * Math.max(0, 1 - (edge - midX) / (zone * 0.35));
+      return base;
+    }
+
+    function draw() {
+      if (W < 1) { requestAnimationFrame(draw); return; }
+      ctx.clearRect(0, 0, W, H);
+
+      // Phase machine — actual path advances at constant linear speed
+      if (phase === 'grow') {
+        progress += GROW;
+        if (progress >= 1) {
+          progress = 1;
+          phase = 'hold';
+          hold = 0;
+        }
+        // Start after lag, then move at fixed ACTUAL_SPEED
+        if (progress > ACTUAL_LAG && actualProg < 1) {
+          actualProg = Math.min(1, actualProg + ACTUAL_SPEED);
+        }
+      } else if (phase === 'hold') {
+        if (actualProg < 1) {
+          actualProg = Math.min(1, actualProg + ACTUAL_SPEED);
+        } else {
+          hold++;
+          if (hold >= HOLD_FRAMES) phase = 'fade';
+        }
+      } else if (phase === 'fade') {
+        fade += FADE_SPEED;
+        if (fade >= 1) {
+          progress = 0;
+          actualProg = 0;
+          fade = 0;
+          phase = 'grow';
+          build();
+        }
+      }
+
+      // Layer 1 — possible paths (faint)
+      for (const seg of network) {
+        if (progress < seg.start) continue;
+        const local = progress >= seg.end
+          ? 1
+          : (progress - seg.start) / (seg.end - seg.start);
+        const midX = (seg.x1 + seg.x2) / 2;
+        const base = seg.kind === 'trunk' ? 0.28 : 0.22;
+        const alpha = fadeAlpha(midX, base);
+        if (alpha < 0.02) continue;
+        stroke(seg, 0, local, alpha, seg.kind === 'trunk' ? 1.05 : 0.95);
+      }
+
+      // Layer 2 — actual path (bright, continuous, no branches)
+      for (const seg of actual) {
+        if (actualProg < seg.start) continue;
+        const local = actualProg >= seg.end
+          ? 1
+          : (actualProg - seg.start) / (seg.end - seg.start);
+        const midX = (seg.x1 + seg.x2) / 2;
+        const alpha = fadeAlpha(midX, 0.92);
+        if (alpha < 0.02) continue;
+        stroke(seg, 0, local, alpha, 1.6);
+      }
+
+      // Soft tip glow on actual path head
+      if (actualProg > 0.02 && actualProg < 0.98 && fade < 0.3) {
+        let tipX = 0, tipY = 0;
+        for (const seg of actual) {
+          if (actualProg >= seg.end) {
+            tipX = seg.x2;
+            tipY = seg.y2;
+          } else if (actualProg > seg.start) {
+            const t = (actualProg - seg.start) / (seg.end - seg.start);
+            tipX = seg.x1 + (seg.x2 - seg.x1) * t;
+            tipY = seg.y1 + (seg.y2 - seg.y1) * t;
+            break;
+          }
+        }
+        if (tipX > 0) {
+          const g = ctx.createRadialGradient(tipX, tipY, 0, tipX, tipY, 10);
+          g.addColorStop(0, 'rgba(255,255,255,0.35)');
+          g.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(tipX, tipY, 10, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    stage.addEventListener('click', () => {
+      progress = 0;
+      actualProg = 0;
+      fade = 0;
+      phase = 'grow';
+      hold = 0;
+      build();
+    });
+
+    window.addEventListener('resize', () => {
+      resize();
+      progress = 0;
+      actualProg = 0;
+      fade = 0;
+      phase = 'grow';
+    });
+
+    resize();
+    draw();
+  </script>
+</body>
+</html>

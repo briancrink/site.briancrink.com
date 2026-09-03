@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Career Path – Strict Graph Rules</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100dvh;
+      background: #0a0a0c;
+      color: #e5e5e5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 28px 16px 48px;
+    }
+    .label {
+      font-size: 0.7rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.38);
+      margin-bottom: 8px;
+    }
+    .title {
+      font-size: 1.05rem;
+      font-weight: 500;
+      color: rgba(255,255,255,0.88);
+      margin-bottom: 6px;
+    }
+    .desc {
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.38);
+      max-width: 540px;
+      text-align: center;
+      line-height: 1.5;
+      margin-bottom: 22px;
+    }
+    .stage {
+      position: relative;
+      width: 100%;
+      max-width: 420px;
+      height: 380px;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: #000;
+    }
+    .stage::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(to right,  rgba(16,16,16,0.9) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(16,16,16,0.9) 1px, transparent 1px);
+      background-size: 24px 24px;
+      background-position: 0 0;
+      pointer-events: none;
+    }
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .phase-tag {
+      margin-top: 16px;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.35);
+      min-height: 1.2em;
+    }
+    .hint {
+      margin-top: 10px;
+      font-size: 0.7rem;
+      color: rgba(255,255,255,0.25);
+    }
+  </style>
+</head>
+<body>
+  <div class="label">Preview</div>
+  <div class="title">Career path — fixed graph rules</div>
+  <p class="desc">
+    Graph-only Possible Path: edges only between dots or dot→edge.
+    Every dot arrival forks into exactly two outbound edges from that dot.
+    Hard cell reservation. No seeding after paths start.
+  </p>
+
+  <div class="stage" id="stage">
+    <canvas id="c"></canvas>
+  </div>
+  <div class="phase-tag" id="phaseTag">—</div>
+  <div class="hint">Click stage to restart</div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const stage = document.getElementById('stage');
+    const phaseTag = document.getElementById('phaseTag');
+    const ctx = canvas.getContext('2d');
+
+    const GRID = 24;
+    const MAX_VERTICAL = 2;
+    const LINE_SPEED = 0.55;
+    const SEED_COUNT = 11;
+    const MAX_ACTIVE_TIPS = 8; // hard cap — prevents exponential tip explosion
+
+    let W = 0, H = 0, cols = 0, rows = 0;
+
+    const roles = [];
+    let firstRole = null;
+
+    // Possible Path
+    let possibleDoneSegs = [];
+    let possibleTips = [];
+    let possibleConnected = new Set();
+    let possibleUsedCells = new Set(); // HARD ban for intermediate cells
+    let possibleTree = new Map();
+    let possibleGrowing = false;
+    let branchedDots = new Set(); // dots that already forked (exactly once)
+
+    // Actual Path
+    let actualPoints = [];
+    let actualCumDist = [];
+    let actualTotalLen = 0;
+    let actualRoleKeys = new Set();
+    let actualDrawn = 0;
+
+    let phase = 'idle';
+    let t = 0;
+    let fade = 0;
+    let seedCount = 0;
+    let nextSeedAt = 0;
+    let seeding = true;
+
+    const PHASE_LABELS = {
+      idle: 'square line grid only',
+      seed: 'roles emerging',
+      paths: 'possible path',
+      actual: 'actual path',
+      fade: 'trailing fade'
+    };
+
+    function gridPt(c, r) { return { x: c * GRID, y: r * GRID }; }
+    function cellKey(c, r) { return c + ',' + r; }
+
+    function cumDistOf(pts) {
+      const cum = [0];
+      let d = 0;
+      for (let i = 1; i < pts.length; i++) {
+        d += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+        cum.push(d);
+      }
+      return cum;
+    }
+
+    function canReachWithVertLimit(c0, r0, c1, r1) {
+      const vert = Math.abs(r1 - r0);
+      const horiz = Math.max(0, c1 - c0);
+      if (vert <= MAX_VERTICAL) return true;
+      return horiz >= Math.ceil(vert / MAX_VERTICAL) - 1;
+    }
+
+    // ─── Routing: never left, max 2 consecutive vertical ───
+    function gridPathForward(c0, r0, c1, r1, hardAvoid) {
+      const cells = [{ col: c0, row: r0 }];
+      let c = c0, r = r0;
+      const targetC = Math.max(c0, c1);
+      const targetR = r1;
+      const vDir = targetR > r0 ? 1 : (targetR < r0 ? -1 : 0);
+      let vertLeft = Math.abs(targetR - r0);
+      let horizLeft = targetC - c0;
+      let vertRun = 0;
+      let guard = 0;
+
+      function blocked(nc, nr) {
+        if (!hardAvoid) return false;
+        if (nc === targetC && nr === targetR) return false;
+        if (nc === c0 && nr === r0) return false;
+        return possibleUsedCells.has(cellKey(nc, nr));
+      }
+
+      while (guard++ < 220 && (vertLeft > 0 || horizLeft > 0)) {
+        const mustRight = vertRun >= MAX_VERTICAL && vertLeft > 0;
+        const canVert = vertLeft > 0 && vertRun < MAX_VERTICAL;
+        const opts = [];
+
+        if (!mustRight && canVert) {
+          const nr = r + vDir;
+          if (nr >= 0 && nr <= rows && !blocked(c, nr)) {
+            opts.push({ c, r: nr, vert: true, w: vertRun > 0 ? 3 : 1.5 });
+          }
+        }
+        if (horizLeft > 0 || mustRight) {
+          const nc = c + 1;
+          if (nc <= cols && !blocked(nc, r)) {
+            opts.push({ c: nc, r, vert: false, w: mustRight ? 5 : 2 });
+          }
+        }
+        // if mustRight but right blocked, try vertical only if under limit (stuck case)
+        if (!opts.length && canVert) {
+          const nr = r + vDir;
+          if (nr >= 0 && nr <= rows && !blocked(c, nr)) {
+            opts.push({ c, r: nr, vert: true, w: 1 });
+          }
+        }
+        if (!opts.length && c < cols && !blocked(c + 1, r)) {
+          opts.push({ c: c + 1, r, vert: false, w: 1 });
+        }
+        if (!opts.length) break;
+
+        const total = opts.reduce((s, o) => s + o.w, 0);
+        let roll = Math.random() * total;
+        let pick = opts[0];
+        for (const o of opts) {
+          roll -= o.w;
+          if (roll <= 0) { pick = o; break; }
+        }
+        c = pick.c;
+        r = pick.r;
+        cells.push({ col: c, row: r });
+        if (pick.vert) {
+          vertLeft = Math.max(0, vertLeft - 1);
+          vertRun++;
+        } else {
+          if (horizLeft > 0) horizLeft--;
+          vertRun = 0;
+        }
+      }
+      // finish horizontal if short of targetC and free
+      guard = 0;
+      while (c < targetC && guard++ < 80) {
+        if (hardAvoid && possibleUsedCells.has(cellKey(c + 1, r)) && !(c + 1 === targetC && r === targetR)) break;
+        c += 1;
+        cells.push({ col: c, row: r });
+      }
+      return cells;
+    }
+
+    function firstRoleOnCells(cells, originKey) {
+      for (let i = 1; i < cells.length; i++) {
+        const k = cellKey(cells[i].col, cells[i].row);
+        if (k === originKey) continue;
+        for (const role of roles) {
+          if (role.col === cells[i].col && role.row === cells[i].row) {
+            return { role, index: i };
+          }
+        }
+      }
+      return null;
+    }
+
+    function markCellsUsed(pts, keepKeys) {
+      for (const p of pts) {
+        const c = Math.round(p.x / GRID);
+        const r = Math.round(p.y / GRID);
+        const k = cellKey(c, r);
+        if (keepKeys && keepKeys.has(k)) continue;
+        if (roles.some(role => role.col === c && role.row === r)) continue;
+        possibleUsedCells.add(k);
+      }
+    }
+
+    /**
+     * Extend polyline to a canvas edge with HARD max MAX_VERTICAL consecutive vertical steps.
+     * Pattern: up to 2 vertical, then 1 right, repeat until edge is reached.
+     * Never inserts a vertical run longer than MAX_VERTICAL.
+     */
+    function extendToEdge(pts, edgeBias) {
+      let x = pts[pts.length - 1].x;
+      let y = pts[pts.length - 1].y;
+      let vertRun = 0;
+      let guard = 0;
+
+      function push(nx, ny) {
+        const last = pts[pts.length - 1];
+        if (Math.hypot(last.x - nx, last.y - ny) < 0.5) return;
+        if (nx < last.x - 0.5) return; // never left
+        pts.push({ x: nx, y: ny });
+        x = nx; y = ny;
+      }
+
+      while (guard++ < 200) {
+        // On an edge already?
+        if (x >= W - 0.5 || y <= 0.5 || y >= H - 0.5) break;
+
+        const wantUp = edgeBias < 0;
+        const wantDown = edgeBias > 0;
+        const atRight = x >= W - GRID * 0.5;
+
+        if (wantUp && y > 0.5) {
+          if (vertRun >= MAX_VERTICAL) {
+            // must break with a right step
+            if (x < W - 0.5) { push(Math.min(W, x + GRID), y); vertRun = 0; }
+            else break;
+          } else {
+            push(x, Math.max(0, y - GRID));
+            vertRun++;
+          }
+        } else if (wantDown && y < H - 0.5) {
+          if (vertRun >= MAX_VERTICAL) {
+            if (x < W - 0.5) { push(Math.min(W, x + GRID), y); vertRun = 0; }
+            else break;
+          } else {
+            push(x, Math.min(H, y + GRID));
+            vertRun++;
+          }
+        } else {
+          // pure right to right edge
+          push(W, y);
+          break;
+        }
+      }
+      // Snap exactly onto edge if close
+      const L = pts[pts.length - 1];
+      if (L.y <= GRID * 0.5 && L.y > 0) pts[pts.length - 1] = { x: L.x, y: 0 };
+      if (L.y >= H - GRID * 0.5 && L.y < H) pts[pts.length - 1] = { x: L.x, y: H };
+      if (L.x >= W - GRID * 0.5 && L.x < W) pts[pts.length - 1] = { x: W, y: L.y };
+    }
+
+    /**
+     * Hard post-pass: no vertical run in pts may exceed MAX_VERTICAL grid steps.
+     * If a run is too long, insert rightward breaks every MAX_VERTICAL steps.
+     */
+    function enforceMaxVertical(pts) {
+      if (pts.length < 2) return pts;
+      const out = [{ x: pts[0].x, y: pts[0].y }];
+      let vertRun = 0;
+      for (let i = 1; i < pts.length; i++) {
+        const prev = out[out.length - 1];
+        const cur = pts[i];
+        const dx = cur.x - prev.x;
+        const dy = cur.y - prev.y;
+        // skip leftward
+        if (dx < -0.5) continue;
+
+        const isVert = Math.abs(dx) < 0.5 && Math.abs(dy) > 0.5;
+        const isHoriz = Math.abs(dy) < 0.5 && dx > 0.5;
+
+        if (isVert) {
+          const steps = Math.round(Math.abs(dy) / GRID);
+          const dir = dy > 0 ? 1 : -1;
+          let remaining = steps;
+          let y = prev.y;
+          let x = prev.x;
+          while (remaining > 0) {
+            if (vertRun >= MAX_VERTICAL) {
+              // insert a rightward break
+              if (x < W - 0.5) {
+                x = Math.min(W, x + GRID);
+                out.push({ x, y });
+                vertRun = 0;
+              } else {
+                // cannot break; stop vertical early
+                break;
+              }
+            }
+            const take = Math.min(MAX_VERTICAL - vertRun, remaining);
+            y = y + dir * take * GRID;
+            y = Math.max(0, Math.min(H, y));
+            out.push({ x, y });
+            vertRun += take;
+            remaining -= take;
+          }
+        } else if (isHoriz) {
+          out.push({ x: cur.x, y: cur.y });
+          vertRun = 0;
+        } else {
+          // diagonal-ish: split into horiz then vert with limit
+          if (dx > 0.5) {
+            out.push({ x: cur.x, y: prev.y });
+            vertRun = 0;
+          }
+          if (Math.abs(dy) > 0.5) {
+            const steps = Math.round(Math.abs(dy) / GRID);
+            const dir = dy > 0 ? 1 : -1;
+            let remaining = steps;
+            let y = out[out.length - 1].y;
+            let x = out[out.length - 1].x;
+            while (remaining > 0) {
+              if (vertRun >= MAX_VERTICAL) {
+                if (x < W - 0.5) {
+                  x = Math.min(W, x + GRID);
+                  out.push({ x, y });
+                  vertRun = 0;
+                } else break;
+              }
+              const take = Math.min(MAX_VERTICAL - vertRun, remaining);
+              y = Math.max(0, Math.min(H, y + dir * take * GRID));
+              out.push({ x, y });
+              vertRun += take;
+              remaining -= take;
+            }
+          }
+        }
+      }
+      return out.length >= 2 ? out : pts;
+    }
+
+    function cellsToPts(originPt, cells, endCol, endRow, toEdge, edgeBias) {
+      const pts = [{ x: originPt.x, y: originPt.y }];
+      for (const cell of cells) {
+        const p = gridPt(cell.col, cell.row);
+        const last = pts[pts.length - 1];
+        if (Math.hypot(last.x - p.x, last.y - p.y) < 0.5) continue;
+        if (p.x < last.x - 0.5) continue;
+        pts.push(p);
+      }
+      if (toEdge) {
+        extendToEdge(pts, edgeBias);
+      } else {
+        const dest = gridPt(endCol, endRow);
+        const last = pts[pts.length - 1];
+        if (Math.hypot(last.x - dest.x, last.y - dest.y) > 0.5 && dest.x >= last.x - 0.5) {
+          pts.push(dest);
+        }
+      }
+      return enforceMaxVertical(pts);
+    }
+
+    /**
+     * Build one grower. HARD constraints:
+     * - starts at origin dot (or left edge)
+     * - ends at first role on route OR canvas edge
+     * - intermediate cells must not be in possibleUsedCells (hardAvoid)
+     * - never moves left
+     */
+    function makeGrower(fromKey, fromCol, fromRow, destCol, destRow, toEdge, edgeBias) {
+      const fromLeft = fromKey === null;
+      const originPt = fromLeft
+        ? { x: 0, y: gridPt(fromCol, fromRow).y }
+        : gridPt(fromCol, fromRow);
+
+      let cells;
+      if (fromLeft) {
+        cells = [];
+        for (let c = 0; c <= destCol; c++) cells.push({ col: c, row: destRow });
+      } else {
+        cells = gridPathForward(fromCol, fromRow, destCol, destRow, true);
+        if (!cells.length || cells[0].col !== fromCol || cells[0].row !== fromRow) {
+          cells = [{ col: fromCol, row: fromRow }, ...cells];
+        }
+        // If hard-avoid path failed to reach near dest, try soft then still truncate
+        const last = cells[cells.length - 1];
+        if (!toEdge && (last.col !== destCol || last.row !== destRow)) {
+          const soft = gridPathForward(fromCol, fromRow, destCol, destRow, false);
+          if (soft.length) cells = soft;
+        }
+      }
+
+      // Never pass a role: retarget to first role on cells
+      const hit = firstRoleOnCells(cells, fromKey || '');
+      let endCol = destCol, endRow = destRow, isEdge = !!toEdge;
+      if (hit) {
+        const sameTarget = !toEdge && hit.role.col === destCol && hit.role.row === destRow;
+        if (!sameTarget) {
+          cells = cells.slice(0, hit.index + 1);
+          endCol = hit.role.col;
+          endRow = hit.role.row;
+          isEdge = false;
+        }
+      }
+
+      let pts = cellsToPts(originPt, cells, endCol, endRow, isEdge, edgeBias);
+
+      // Edge path must not pass through an unconnected role
+      if (isEdge) {
+        for (let i = 1; i < pts.length; i++) {
+          for (const role of roles) {
+            const k = role.col + ',' + role.row;
+            if (fromKey && k === fromKey) continue;
+            if (possibleConnected.has(k)) continue;
+            if (Math.hypot(pts[i].x - role.x, pts[i].y - role.y) < GRID * 0.4) {
+              pts = pts.slice(0, i);
+              pts.push({ x: role.x, y: role.y });
+              const cum = cumDistOf(pts);
+              return {
+                pts, cum,
+                totalLen: Math.max(0.01, cum[cum.length - 1] || 0.01),
+                drawn: 0,
+                fromKey, toKey: k,
+                toCol: role.col, toRow: role.row,
+                toEdge: false
+              };
+            }
+          }
+        }
+      }
+
+      pts = enforceMaxVertical(pts);
+      const cum = cumDistOf(pts);
+      return {
+        pts, cum,
+        totalLen: Math.max(0.01, cum[cum.length - 1] || 0.01),
+        drawn: 0,
+        fromKey,
+        toKey: isEdge ? ('edge:' + fromCol + ',' + fromRow + ':' + edgeBias) : (endCol + ',' + endRow),
+        toCol: endCol,
+        toRow: endRow,
+        toEdge: isEdge
+      };
+    }
+
+    // ─── Roles ───────────────────────────────────────────────
+    function occupied() {
+      const s = new Set();
+      roles.forEach(d => s.add(d.col + ',' + d.row));
+      return s;
+    }
+
+    function randomFreeCell(minCol, maxCol) {
+      const used = occupied();
+      minCol = Math.max(0, minCol);
+      maxCol = Math.min(cols, maxCol);
+      if (maxCol < minCol) return null;
+      for (let tries = 0; tries < 80; tries++) {
+        const c = minCol + Math.floor(Math.random() * (maxCol - minCol + 1));
+        const r = 1 + Math.floor(Math.random() * Math.max(1, rows - 1));
+        if (r > rows) continue;
+        const k = c + ',' + r;
+        if (used.has(k)) continue;
+        // FIX: never seed on a cell already used by a path
+        if (possibleUsedCells.has(k)) continue;
+        return { col: c, row: r };
+      }
+      return null;
+    }
+
+    function spawnRole(col, row) {
+      const p = gridPt(col, row);
+      const role = {
+        col, row, x: p.x, y: p.y,
+        state: 'emerging', age: 0,
+        pulse: Math.random() * Math.PI * 2, scale: 0
+      };
+      roles.push(role);
+      return role;
+    }
+
+    function maybeSeed() {
+      // FIX: no seeding after paths phase begins
+      if (!seeding || phase !== 'seed') return;
+      if (t < nextSeedAt) return;
+      const cell = randomFreeCell(1, Math.max(1, cols - 1));
+      if (cell) {
+        spawnRole(cell.col, cell.row);
+        seedCount++;
+      }
+      nextSeedAt = t + 48 + Math.floor(Math.random() * 36);
+    }
+
+    function settleRoleAt(col, row) {
+      for (const role of roles) {
+        if (role.col === col && role.row === row) {
+          if (role.state === 'pulsing' || role.state === 'emerging') {
+            role.state = 'settled';
+            role.scale = 1;
+          }
+        }
+      }
+    }
+
+    function commitGrower(g) {
+      for (let i = 0; i < g.pts.length - 1; i++) {
+        const a = g.pts[i], b = g.pts[i + 1];
+        if (b.x < a.x - 0.5) continue;
+        const len = Math.hypot(b.x - a.x, b.y - a.y);
+        if (len < 0.01) continue;
+        possibleDoneSegs.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, len });
+      }
+      const keep = new Set();
+      if (g.fromKey) keep.add(g.fromKey);
+      if (!g.toEdge) keep.add(g.toKey);
+      markCellsUsed(g.pts, keep);
+
+      if (!g.toEdge) {
+        if (g.fromKey) {
+          if (!possibleTree.has(g.fromKey)) possibleTree.set(g.fromKey, []);
+          const segs = [];
+          for (let i = 0; i < g.pts.length - 1; i++) {
+            const a = g.pts[i], b = g.pts[i + 1];
+            if (b.x < a.x - 0.5) continue;
+            const len = Math.hypot(b.x - a.x, b.y - a.y);
+            if (len < 0.01) continue;
+            segs.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, len });
+          }
+          possibleTree.get(g.fromKey).push({
+            toKey: g.toKey, col: g.toCol, row: g.toRow, segs
+          });
+        }
+        if (!possibleTree.has(g.toKey)) possibleTree.set(g.toKey, []);
+        possibleConnected.add(g.toKey);
+        settleRoleAt(g.toCol, g.toRow);
+      }
+    }
+
+    function roleCandidatesFrom(originCol, originRow, originKey) {
+      const list = [];
+      for (const role of roles) {
+        const k = role.col + ',' + role.row;
+        if (k === originKey) continue;
+        if (possibleConnected.has(k)) continue;
+        if (branchedDots.has(k)) continue;
+        if (possibleTips.some(t => !t.toEdge && t.toKey === k)) continue;
+        if (role.col < originCol) continue;
+        if (!canReachWithVertLimit(originCol, originRow, role.col, role.row)) continue;
+        list.push({
+          col: role.col, row: role.row,
+          d: Math.abs(role.col - originCol) + Math.abs(role.row - originRow)
+        });
+      }
+      list.sort((a, b) => a.d - b.d || a.col - b.col);
+      return list;
+    }
+
+    /**
+     * FIX: each dot branches EXACTLY ONCE.
+     * Always emits 2 growers from that exact dot.
+     * First grower's cells are reserved BEFORE second is routed
+     * so the two outbound edges cannot share intermediate cells.
+     */
+    function mustBranchAtDot(col, row) {
+      const key = col + ',' + row;
+      if (branchedDots.has(key)) return; // exactly once
+      branchedDots.add(key);
+
+      const originPt = gridPt(col, row);
+      const candidates = roleCandidatesFrom(col, row, key);
+      const growers = [];
+
+      const atCap = possibleTips.length >= MAX_ACTIVE_TIPS;
+
+      if (!atCap) {
+        for (const c of candidates) {
+          if (growers.length >= 2) break;
+          const g = makeGrower(key, col, row, c.col, c.row, false, 0);
+          g.pts[0] = { x: originPt.x, y: originPt.y };
+          g.cum = cumDistOf(g.pts);
+          g.totalLen = Math.max(0.01, g.cum[g.cum.length - 1] || 0.01);
+          g.drawn = 0;
+          if (g.toKey === key) continue;
+          if (possibleTips.some(t => t.toKey === g.toKey)) continue;
+          if (growers.some(x => x.toKey === g.toKey)) continue;
+          growers.push(g);
+          // Reserve this grower's intermediate cells NOW so the sibling diverges
+          markCellsUsed(g.pts, new Set([key, g.toKey]));
+        }
+      }
+
+      // Pad to exactly 2 with edge growers (opposite bias), cells reserved between them
+      let bias = -1;
+      while (growers.length < 2) {
+        const g = makeGrower(key, col, row, Math.min(cols, col + 5), row, true, bias);
+        g.pts[0] = { x: originPt.x, y: originPt.y };
+        g.cum = cumDistOf(g.pts);
+        g.totalLen = Math.max(0.01, g.cum[g.cum.length - 1] || 0.01);
+        g.drawn = 0;
+        growers.push(g);
+        markCellsUsed(g.pts, new Set([key]));
+        bias = 1;
+      }
+
+      for (const g of growers) {
+        g.pts[0] = { x: originPt.x, y: originPt.y };
+        g.cum = cumDistOf(g.pts);
+        g.totalLen = Math.max(0.01, g.cum[g.cum.length - 1] || 0.01);
+        g.drawn = 0;
+        possibleTips.push(g);
+      }
+    }
+
+    function buildPossiblePaths() {
+      possibleDoneSegs = [];
+      possibleTips = [];
+      possibleConnected = new Set();
+      possibleUsedCells = new Set();
+      possibleTree = new Map();
+      branchedDots = new Set();
+      possibleGrowing = true;
+      seeding = false; // FIX: stop all seeding once paths begin
+      if (!firstRole) return;
+
+      const fp = gridPt(firstRole.col, firstRole.row);
+      possibleTips.push({
+        pts: [{ x: 0, y: fp.y }, { x: fp.x, y: fp.y }],
+        cum: [0, Math.max(0.01, fp.x)],
+        totalLen: Math.max(0.01, fp.x),
+        drawn: 0,
+        fromKey: null,
+        toKey: firstRole.col + ',' + firstRole.row,
+        toCol: firstRole.col,
+        toRow: firstRole.row,
+        toEdge: false
+      });
+    }
+
+    function tickPossibleGrowth() {
+      if (!possibleGrowing) return;
+
+      const stillActive = [];
+      const arrived = [];
+
+      for (const g of possibleTips) {
+        const prev = g.drawn;
+        g.drawn = Math.min(g.totalLen, g.drawn + LINE_SPEED);
+
+        // Detect unconnected role under the leading point (never pass through)
+        let hit = null;
+        const exclude = new Set();
+        if (g.fromKey) exclude.add(g.fromKey);
+
+        for (let s = 1; s <= 8; s++) {
+          const d = prev + (g.drawn - prev) * (s / 8);
+          let pos = null;
+          for (let i = 0; i < g.pts.length - 1; i++) {
+            const d0 = g.cum[i], d1 = g.cum[i + 1];
+            if (d > d1 + 0.01) continue;
+            if (d <= d0) { pos = { x: g.pts[i].x, y: g.pts[i].y }; break; }
+            const u = (d - d0) / (d1 - d0 || 1);
+            pos = {
+              x: g.pts[i].x + (g.pts[i + 1].x - g.pts[i].x) * u,
+              y: g.pts[i].y + (g.pts[i + 1].y - g.pts[i].y) * u
+            };
+            break;
+          }
+          if (!pos) continue;
+          for (const role of roles) {
+            const k = role.col + ',' + role.row;
+            if (exclude.has(k)) continue;
+            if (possibleConnected.has(k)) continue;
+            if (Math.hypot(role.x - pos.x, role.y - pos.y) < GRID * 0.45) {
+              hit = role;
+              break;
+            }
+          }
+          if (hit) break;
+        }
+
+        if (hit) {
+          const hitPt = gridPt(hit.col, hit.row);
+          const keep = [];
+          for (let i = 0; i < g.pts.length; i++) {
+            if (g.cum[i] <= g.drawn + 0.01) keep.push({ x: g.pts[i].x, y: g.pts[i].y });
+            else break;
+          }
+          if (!keep.length) keep.push({ x: g.pts[0].x, y: g.pts[0].y });
+          const last = keep[keep.length - 1];
+          if (Math.hypot(last.x - hitPt.x, last.y - hitPt.y) > 0.5) keep.push({ x: hitPt.x, y: hitPt.y });
+          else keep[keep.length - 1] = { x: hitPt.x, y: hitPt.y };
+          g.pts = keep;
+          g.cum = cumDistOf(g.pts);
+          g.totalLen = g.cum[g.cum.length - 1] || 0.01;
+          g.drawn = g.totalLen;
+          g.toCol = hit.col;
+          g.toRow = hit.row;
+          g.toKey = hit.col + ',' + hit.row;
+          g.toEdge = false;
+          arrived.push(g);
+          continue;
+        }
+
+        if (g.drawn >= g.totalLen - 0.01) {
+          g.drawn = g.totalLen;
+          arrived.push(g);
+        } else {
+          stillActive.push(g);
+        }
+      }
+      possibleTips = stillActive;
+      if (!arrived.length) return;
+
+      const dotsHit = [];
+      for (const g of arrived) {
+        commitGrower(g);
+        if (!g.toEdge) dotsHit.push(g);
+      }
+
+      // Every unique dot arrival → branch exactly once into two from that dot
+      for (const g of dotsHit) {
+        mustBranchAtDot(g.toCol, g.toRow);
+      }
+    }
+
+    function possibleGrowthDone() {
+      return possibleGrowing && possibleTips.length === 0 && possibleConnected.size > 0;
+    }
+
+    function strokePossibleNetwork(alpha, width) {
+      for (const seg of possibleDoneSegs) {
+        let a = alpha;
+        if (fade > 0) {
+          const midX = (seg.x1 + seg.x2) / 2;
+          const zone = W * 0.6, edge = fade * zone;
+          if (midX < edge) a *= Math.max(0, 1 - (edge - midX) / (zone * 0.4));
+        }
+        if (a < 0.02) continue;
+        ctx.strokeStyle = 'rgba(255,255,255,' + a + ')';
+        ctx.lineWidth = width;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(seg.x1, seg.y1);
+        ctx.lineTo(seg.x2, seg.y2);
+        ctx.stroke();
+      }
+      for (const tip of possibleTips) {
+        if (tip.pts.length < 2 || tip.drawn <= 0) continue;
+        ctx.strokeStyle = 'rgba(255,255,255,' + alpha + ')';
+        ctx.lineWidth = width;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        let started = false;
+        for (let i = 0; i < tip.pts.length - 1; i++) {
+          const d0 = tip.cum[i], d1 = tip.cum[i + 1];
+          if (tip.drawn <= d0) break;
+          const p0 = tip.pts[i], p1 = tip.pts[i + 1];
+          if (!started) { ctx.moveTo(p0.x, p0.y); started = true; }
+          else ctx.lineTo(p0.x, p0.y);
+          if (tip.drawn >= d1) ctx.lineTo(p1.x, p1.y);
+          else {
+            const u = (tip.drawn - d0) / (d1 - d0 || 1);
+            ctx.lineTo(p0.x + (p1.x - p0.x) * u, p0.y + (p1.y - p0.y) * u);
+            break;
+          }
+        }
+        if (started) ctx.stroke();
+      }
+    }
+
+    // ─── Actual Path ─────────────────────────────────────────
+    function buildActualPath() {
+      actualPoints = [];
+      actualCumDist = [];
+      actualTotalLen = 0;
+      actualRoleKeys = new Set();
+      if (!firstRole || !roles.length) return;
+
+      const pts = [];
+      function appendPt(x, y) {
+        const last = pts[pts.length - 1];
+        if (last && Math.hypot(last.x - x, last.y - y) < 0.5) return;
+        if (last && x < last.x - 0.5) return;
+        pts.push({ x, y });
+      }
+
+      const fp = gridPt(firstRole.col, firstRole.row);
+      appendPt(0, fp.y);
+      appendPt(fp.x, fp.y);
+
+      let curKey = firstRole.col + ',' + firstRole.row;
+      actualRoleKeys.add(curKey);
+      let guard = 0;
+
+      while (guard++ < 40) {
+        const [cc, rr] = curKey.split(',').map(Number);
+        const branches = (possibleTree.get(curKey) || []).filter(b => b.col >= cc);
+        let edgeSegs = null;
+        let nextKey = null;
+
+        if (branches.length > 0) {
+          const rightward = branches.filter(b => b.col > cc);
+          const pool = rightward.length ? rightward : branches;
+          const pick = pool[Math.floor(Math.random() * pool.length)];
+          edgeSegs = pick.segs;
+          nextKey = pick.toKey;
+        }
+
+        // Rare forge only to roles already on the possible graph
+        if (branches.length > 1 && Math.random() < 0.15) {
+          const pick = branches[Math.floor(Math.random() * branches.length)];
+          edgeSegs = pick.segs;
+          nextKey = pick.toKey;
+        }
+
+        if (!edgeSegs || !nextKey) break;
+        for (const s of edgeSegs) {
+          appendPt(s.x1, s.y1);
+          appendPt(s.x2, s.y2);
+        }
+        actualRoleKeys.add(nextKey);
+        curKey = nextKey;
+      }
+
+      const [ec, er] = curKey.split(',').map(Number);
+      const ep = gridPt(ec, er);
+      appendPt(ep.x, ep.y);
+      appendPt(W, ep.y);
+
+      actualPoints = pts;
+      actualCumDist = [0];
+      let d = 0;
+      for (let i = 1; i < pts.length; i++) {
+        d += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+        actualCumDist.push(d);
+      }
+      actualTotalLen = d;
+    }
+
+    function strokeActualPolyline(drawn, alpha, width) {
+      if (actualPoints.length < 2 || drawn <= 0) return;
+      ctx.strokeStyle = 'rgba(255,255,255,' + alpha + ')';
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      let started = false;
+      for (let i = 0; i < actualPoints.length - 1; i++) {
+        const d0 = actualCumDist[i], d1 = actualCumDist[i + 1];
+        if (drawn <= d0) break;
+        const p0 = actualPoints[i], p1 = actualPoints[i + 1];
+        let a = alpha;
+        if (fade > 0) {
+          const midX = (p0.x + p1.x) / 2;
+          const zone = W * 0.6, edge = fade * zone;
+          if (midX < edge) {
+            a = alpha * Math.max(0, 1 - (edge - midX) / (zone * 0.4));
+            if (a < 0.02) continue;
+            if (started) { ctx.stroke(); ctx.beginPath(); started = false; }
+            ctx.strokeStyle = 'rgba(255,255,255,' + a + ')';
+          }
+        }
+        if (!started) { ctx.moveTo(p0.x, p0.y); started = true; }
+        else ctx.lineTo(p0.x, p0.y);
+        if (drawn >= d1) ctx.lineTo(p1.x, p1.y);
+        else {
+          const u = (drawn - d0) / (d1 - d0 || 1);
+          ctx.lineTo(p0.x + (p1.x - p0.x) * u, p0.y + (p1.y - p0.y) * u);
+          break;
+        }
+      }
+      if (started) ctx.stroke();
+    }
+
+    function tipActual(drawn) {
+      if (actualPoints.length < 2 || drawn <= 0) return null;
+      for (let i = 0; i < actualPoints.length - 1; i++) {
+        const d0 = actualCumDist[i], d1 = actualCumDist[i + 1];
+        if (drawn >= d1) continue;
+        if (drawn <= d0) return { x: actualPoints[i].x, y: actualPoints[i].y };
+        const u = (drawn - d0) / (d1 - d0 || 1);
+        return {
+          x: actualPoints[i].x + (actualPoints[i + 1].x - actualPoints[i].x) * u,
+          y: actualPoints[i].y + (actualPoints[i + 1].y - actualPoints[i].y) * u
+        };
+      }
+      const last = actualPoints[actualPoints.length - 1];
+      return { x: last.x, y: last.y };
+    }
+
+    function takeRolesByActual(drawn) {
+      if (!actualRoleKeys.size) return;
+      const tip = tipActual(drawn);
+      if (!tip) return;
+      for (const role of roles) {
+        const k = role.col + ',' + role.row;
+        if (!actualRoleKeys.has(k) || role.state === 'taken') continue;
+        if (Math.hypot(tip.x - role.x, tip.y - role.y) < GRID * 0.45) {
+          role.state = 'taken';
+          role.scale = 1.55;
+        }
+      }
+    }
+
+    // ─── Phase machine ───────────────────────────────────────
+    function reset() {
+      roles.length = 0;
+      firstRole = null;
+      possibleDoneSegs = [];
+      possibleTips = [];
+      possibleConnected = new Set();
+      possibleUsedCells = new Set();
+      possibleTree = new Map();
+      branchedDots = new Set();
+      possibleGrowing = false;
+      actualPoints = [];
+      actualCumDist = [];
+      actualTotalLen = 0;
+      actualRoleKeys = new Set();
+      actualDrawn = 0;
+      phase = 'idle';
+      t = 0;
+      fade = 0;
+      seedCount = 0;
+      nextSeedAt = 40;
+      seeding = true;
+    }
+
+    function resize() {
+      W = stage.clientWidth;
+      H = stage.clientHeight;
+      canvas.width = W * devicePixelRatio;
+      canvas.height = H * devicePixelRatio;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+      cols = Math.floor(W / GRID);
+      rows = Math.floor(H / GRID);
+      reset();
+    }
+
+    function tick() {
+      t++;
+
+      if (phase === 'idle') {
+        if (t > 45) { phase = 'seed'; t = 0; nextSeedAt = 0; seedCount = 0; seeding = true; }
+      } else if (phase === 'seed') {
+        if (seedCount === 0 && t >= nextSeedAt) {
+          const r = 2 + Math.floor(Math.random() * Math.max(1, rows - 3));
+          firstRole = spawnRole(0, r);
+          seedCount = 1;
+          nextSeedAt = t + 40 + Math.floor(Math.random() * 20);
+        } else if (seedCount > 0 && seedCount < SEED_COUNT) {
+          maybeSeed();
+        } else if (seedCount >= SEED_COUNT && t > nextSeedAt + 20) {
+          phase = 'paths';
+          t = 0;
+          buildPossiblePaths();
+        }
+      } else if (phase === 'paths') {
+        tickPossibleGrowth();
+        // FIX: no maybeSeed here
+        if (possibleGrowthDone()) {
+          if (t > 90) {
+            phase = 'actual';
+            t = 0;
+            actualDrawn = 0;
+            buildActualPath();
+          }
+        }
+      } else if (phase === 'actual') {
+        actualDrawn = Math.min(actualTotalLen, actualDrawn + LINE_SPEED);
+        takeRolesByActual(actualDrawn);
+        // FIX: no maybeSeed here
+        if (actualTotalLen > 0 && actualDrawn >= actualTotalLen - 0.5) {
+          takeRolesByActual(actualTotalLen);
+          if (t > 70) { phase = 'fade'; t = 0; fade = 0; }
+        } else if (actualTotalLen <= 0 && t > 20) {
+          buildActualPath();
+        }
+      } else if (phase === 'fade') {
+        fade += 0.003;
+        if (fade >= 1) reset();
+      }
+
+      for (const role of roles) {
+        role.age++;
+        if (role.state === 'emerging') {
+          if (role.age < 36) role.scale = role.age / 36 * 1.55;
+          else if (role.age < 64) role.scale = 1.55 - (role.age - 36) / 28 * 0.55;
+          else { role.state = 'pulsing'; role.scale = 1; }
+        } else if (role.state === 'pulsing') {
+          role.pulse += 0.018;
+          role.scale = 1 + Math.sin(role.pulse) * 0.28;
+        } else if (role.state === 'taken') {
+          role.scale = 1.55;
+        } else {
+          role.scale = 1;
+        }
+      }
+
+      phaseTag.textContent = PHASE_LABELS[phase] || phase;
+    }
+
+    function draw() {
+      if (W < 1) { requestAnimationFrame(draw); return; }
+      tick();
+      ctx.clearRect(0, 0, W, H);
+
+      strokePossibleNetwork(0.28, 1.05);
+      strokeActualPolyline(actualDrawn, 0.92, 1.7);
+
+      for (const role of roles) {
+        let alpha = 1;
+        if (fade > 0) {
+          const zone = W * 0.6, edge = fade * zone;
+          if (role.x < edge) alpha = Math.max(0, 1 - (edge - role.x) / (zone * 0.4));
+          if (alpha < 0.02) continue;
+        }
+        const r = 2.2 * role.scale;
+        if (role.state === 'taken') {
+          ctx.fillStyle = 'rgba(255,255,255,' + (0.95 * alpha) + ')';
+          ctx.beginPath();
+          ctx.arc(role.x, role.y, Math.max(3.2, r), 0, Math.PI * 2);
+          ctx.fill();
+        } else if (role.state === 'settled') {
+          ctx.fillStyle = 'rgba(90,90,90,' + (0.75 * alpha) + ')';
+          ctx.beginPath();
+          ctx.arc(role.x, role.y, 2.0, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          const a = role.state === 'emerging' ? 0.72 : 0.55;
+          ctx.fillStyle = 'rgba(200,200,200,' + (a * alpha) + ')';
+          ctx.beginPath();
+          ctx.arc(role.x, role.y, Math.max(1.5, r), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      if (phase === 'actual' && actualDrawn > 2 && actualDrawn < actualTotalLen - 2) {
+        const tip = tipActual(actualDrawn);
+        if (tip) {
+          const g = ctx.createRadialGradient(tip.x, tip.y, 0, tip.x, tip.y, 9);
+          g.addColorStop(0, 'rgba(255,255,255,0.3)');
+          g.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(tip.x, tip.y, 9, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    stage.addEventListener('click', () => reset());
+    window.addEventListener('resize', resize);
+    resize();
+    draw();
+  </script>
+</body>
+</html>

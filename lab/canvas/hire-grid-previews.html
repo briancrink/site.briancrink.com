@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hire Grid – Animation Previews</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0a0c;
+      color: #e5e5e5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 32px 20px 80px;
+    }
+    h1 {
+      font-size: 1.1rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.45);
+      margin-bottom: 8px;
+    }
+    .intro {
+      font-size: 0.9rem;
+      color: rgba(255,255,255,0.38);
+      margin-bottom: 36px;
+      max-width: 640px;
+      line-height: 1.55;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 28px;
+      max-width: 1120px;
+    }
+    .card {
+      background: #000;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .card-label {
+      padding: 14px 16px 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #fff;
+    }
+    .card-desc {
+      padding: 0 16px 12px;
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.4);
+      line-height: 1.4;
+    }
+    .stage {
+      position: relative;
+      height: 280px;
+      background: #000;
+      cursor: crosshair;
+    }
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .chip {
+      position: absolute;
+      left: 50%;
+      top: 44%;
+      transform: translate(-50%, -50%);
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 18px 8px 14px;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 50px;
+      background: rgba(0,0,0,0.55);
+      color: #8b949e;
+      font-size: 0.72rem;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .chip .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #27c93f;
+      box-shadow: 0 0 10px #27c93f;
+      position: relative;
+    }
+    .chip .dot::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: #18b02f;
+      animation: pulse 1.35s infinite ease-out;
+    }
+    @keyframes pulse {
+      0%   { transform: scale(0.5); opacity: 0.55; }
+      100% { transform: scale(2.3); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Hire canvas previews</h1>
+  <p class="intro">
+    Same 24px grid and green hire seat in every card. Options 1–15 are atmosphere around that seat.
+    16 is a left-to-right wave on the grid lines. 17–18 warp the grid itself from the beacon
+    (gravity well / spacetime dip) — not a separate overlay. Move the pointer over cards 10–13 and 15.
+  </p>
+
+  <div class="grid" id="cards"></div>
+
+  <script>
+    const G = 24;
+    const OPTIONS = [
+      { id: 'hold', title: '1 — Hold', desc: 'Quiet grid. Only the green seat pulses. Default once cards exist.' },
+      { id: 'land', title: '2 — Landed seat', desc: 'White cell fades at the intersection; green pulse takes the seat and stays.' },
+      { id: 'neighbors', title: '3 — Neighborhood', desc: 'A few gray intersections around the beacon breathe. Market exists; only one seat is green.' },
+      { id: 'inbound', title: '4 — Incoming paths', desc: 'Short gray segments grow toward the seat from the left, then dissolve before contact.' },
+      { id: 'outbound', title: '5 — Outgoing paths', desc: 'Faint lines leave the seat to the right and fade. Possible next roles, not an actual path.' },
+      { id: 'orbit', title: '6 — Orbit ticks', desc: 'One gray neighbor lights, then the next, slowly around the seat.' },
+      { id: 'ping', title: '7 — Idle ping', desc: 'Every few pulses a ring travels two cells on the grid and dies. Same language as the chip ring.' },
+      { id: 'day', title: '8 — Day cycle', desc: 'Grid line opacity breathes over ~8s. Beacon speed unchanged.' },
+      { id: 'shift', title: '9 — Shift change', desc: 'Sparse gray seats fade out; new ones fade in. Jobs-market rule, kept thin.' },
+      { id: 'radius', title: '10 — Pointer radius', desc: '2–3 cell falloff brightens intersections under the pointer. Gray/white only.' },
+      { id: 'snap', title: '11 — Snap intersection', desc: 'Highlight locks to the nearest grid crosshair. No free blob.' },
+      { id: 'cross', title: '12 — Rank and file', desc: 'Pointer lights the row and column through the nearest intersection.' },
+      { id: 'magnet', title: '13 — Magnet', desc: 'Near the seat the field tightens onto the green beacon.' },
+      { id: 'parallax', title: '14 — Micro parallax', desc: 'Grid drifts a few pixels opposite the pointer. Beacon stays pinned.' },
+      { id: 'mask', title: '15 — Density mask', desc: 'Grid stronger at the mast, quieter toward the bottom where cards will sit.' },
+      { id: 'sweep', title: '16 — Sweep wave L→R', desc: 'A brightness wave travels left to right across the grid lines themselves.' },
+      { id: 'radial', title: '17 — Radial grid pulse', desc: 'Rings of line brightness expand from the beacon. The grid is the wave.' },
+      { id: 'well', title: '18 — Gravity well', desc: 'Intersections pull inward around the seat. Static dip, like mass on the sheet.' },
+      { id: 'spacetime', title: '19 — Well + ripple', desc: 'The dip stays. A radial ripple travels out on the warped lattice. Sun in the middle.' }
+    ];
+
+    const root = document.getElementById('cards');
+    const stages = [];
+
+    OPTIONS.forEach((opt) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML =
+        '<div class="card-label">' + opt.title + '</div>' +
+        '<div class="card-desc">' + opt.desc + '</div>' +
+        '<div class="stage" data-id="' + opt.id + '">' +
+          '<canvas></canvas>' +
+          '<div class="chip"><span class="dot"></span>Available For Hire</div>' +
+        '</div>';
+      root.appendChild(card);
+      const stage = card.querySelector('.stage');
+      const canvas = stage.querySelector('canvas');
+      const state = {
+        id: opt.id,
+        stage,
+        canvas,
+        ctx: canvas.getContext('2d'),
+        mx: null,
+        my: null,
+        t0: performance.now(),
+        extras: {}
+      };
+      stage.addEventListener('mousemove', (e) => {
+        const r = stage.getBoundingClientRect();
+        state.mx = e.clientX - r.left;
+        state.my = e.clientY - r.top;
+      });
+      stage.addEventListener('mouseleave', () => {
+        state.mx = null;
+        state.my = null;
+      });
+      stages.push(state);
+    });
+
+    function resize(s) {
+      const r = s.stage.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      s.canvas.width = Math.floor(r.width * dpr);
+      s.canvas.height = Math.floor(r.height * dpr);
+      s.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      s.w = r.width;
+      s.h = r.height;
+    }
+
+    function beaconPos(s) {
+      return { x: s.w * 0.5, y: s.h * 0.44 };
+    }
+
+    function snapPoint(x, y) {
+      return {
+        x: Math.round(x / G) * G,
+        y: Math.round(y / G) * G
+      };
+    }
+
+    function hash(n) {
+      const x = Math.sin(n * 127.1) * 43758.5453;
+      return x - Math.floor(x);
+    }
+
+    function initShift(s) {
+      const dots = [];
+      for (let i = 0; i < 8; i++) {
+        dots.push({
+          c: 2 + Math.floor(hash(i + 3) * 12),
+          r: 2 + Math.floor(hash(i + 9) * 8),
+          life: hash(i + 1)
+        });
+      }
+      s.extras.dots = dots;
+    }
+
+    stages.forEach((s) => {
+      resize(s);
+      if (s.id === 'shift') initShift(s);
+      if (s.id === 'neighbors' || s.id === 'orbit') {
+        const b = beaconPos(s);
+        const cells = [];
+        const dirs = [[2,0],[2,1],[1,2],[0,2],[-1,2],[-2,1],[-2,0],[-1,-2],[1,-2],[2,-1]];
+        dirs.forEach((d, i) => {
+          cells.push({
+            x: snapPoint(b.x + d[0] * G, b.y + d[1] * G).x,
+            y: snapPoint(b.x + d[0] * G, b.y + d[1] * G).y,
+            phase: i * 0.7
+          });
+        });
+        s.extras.cells = cells;
+      }
+    });
+
+    window.addEventListener('resize', () => stages.forEach(resize));
+
+    function warpPoint(x, y, cx, cy, spec, t) {
+      const dx = x - cx;
+      const dy = y - cy;
+      const r = Math.hypot(dx, dy) || 0.0001;
+      const ux = dx / r;
+      const uy = dy / r;
+      let pull = 0;
+      if (spec.well) {
+        pull -= spec.well * Math.exp(-r / spec.wellR);
+      }
+      if (spec.ripple) {
+        const wave = Math.sin(r / spec.len - t * spec.speed);
+        const env = Math.exp(-r / spec.decay);
+        pull += spec.amp * wave * env;
+      }
+      return { x: x + ux * pull, y: y + uy * pull, r };
+    }
+
+    function lineAlpha(x, y, cx, cy, spec, t, s) {
+      let a = spec.base;
+      const dx = x - cx;
+      const dy = y - cy;
+      const r = Math.hypot(dx, dy);
+
+      if (spec.day) {
+        a += spec.day * (0.5 + 0.5 * Math.sin(t * 0.7));
+      }
+      if (spec.sweep) {
+        const u = ((x / s.w) - (t * spec.sweep % 1.4) + 1.4) % 1.4;
+        const band = Math.exp(-Math.pow((u - 0.35) * 8, 2));
+        a += spec.sweepAmp * band;
+      }
+      if (spec.radial) {
+        a += spec.radialAmp * (0.5 + 0.5 * Math.sin(r / spec.radialLen - t * spec.radialSpeed));
+      }
+      if (spec.mask) {
+        a *= 1 - 0.7 * Math.max(0, (y / s.h - 0.42) / 0.58);
+      }
+      if (spec.pointer && s.mx != null) {
+        const pr = Math.hypot(x - s.mx, y - s.my);
+        a += spec.pointer * Math.exp(-pr / spec.pointerR);
+      }
+      if (spec.cross && s.mx != null) {
+        const p = snapPoint(s.mx, s.my);
+        if (Math.abs(x - p.x) < 1 || Math.abs(y - p.y) < 1) a += 0.45;
+      }
+      if (spec.snap && s.mx != null) {
+        const p = snapPoint(s.mx, s.my);
+        const pr = Math.hypot(x - p.x, y - p.y);
+        a += 0.7 * Math.exp(-pr / 18);
+      }
+      if (spec.magnet && s.mx != null) {
+        const toB = Math.hypot(s.mx - cx, s.my - cy);
+        const tight = Math.max(28, 90 - Math.max(0, 140 - toB) * 0.4);
+        const pr = Math.hypot(x - s.mx, y - s.my);
+        const br = Math.hypot(x - cx, y - cy);
+        a += 0.35 * Math.exp(-pr / tight);
+        if (toB < 70) a += 0.25 * Math.exp(-br / 36);
+      }
+      return Math.max(0.03, Math.min(0.85, a));
+    }
+
+    function drawLattice(s, t, spec) {
+      const ctx = s.ctx;
+      const b = beaconPos(s);
+      const shiftX = spec.parallax && s.mx != null ? (s.w * 0.5 - s.mx) * 0.03 : 0;
+      const shiftY = spec.parallax && s.my != null ? (s.h * 0.5 - s.my) * 0.03 : 0;
+      const cols = Math.ceil(s.w / G) + 2;
+      const rows = Math.ceil(s.h / G) + 2;
+
+      ctx.save();
+      ctx.translate(shiftX, shiftY);
+
+      for (let c = 0; c <= cols; c++) {
+        ctx.beginPath();
+        let started = false;
+        for (let r = 0; r <= rows; r++) {
+          const x0 = c * G;
+          const y0 = r * G;
+          const p = (spec.well || spec.ripple)
+            ? warpPoint(x0, y0, b.x, b.y, spec, t)
+            : { x: x0, y: y0, r: 0 };
+          if (!started) { ctx.moveTo(p.x, p.y); started = true; }
+          else ctx.lineTo(p.x, p.y);
+        }
+        ctx.strokeStyle = 'rgba(255,255,255,' + lineAlpha(c * G, b.y, b.x, b.y, spec, t, s) + ')';
+        ctx.lineWidth = spec.well || spec.ripple ? 1 : 1;
+        ctx.stroke();
+      }
+
+      for (let r = 0; r <= rows; r++) {
+        ctx.beginPath();
+        let started = false;
+        for (let c = 0; c <= cols; c++) {
+          const x0 = c * G;
+          const y0 = r * G;
+          const p = (spec.well || spec.ripple)
+            ? warpPoint(x0, y0, b.x, b.y, spec, t)
+            : { x: x0, y: y0, r: 0 };
+          if (!started) { ctx.moveTo(p.x, p.y); started = true; }
+          else ctx.lineTo(p.x, p.y);
+        }
+        ctx.strokeStyle = 'rgba(255,255,255,' + lineAlpha(b.x, r * G, b.x, b.y, spec, t, s) + ')';
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+
+    function drawDot(ctx, x, y, r, color, a) {
+      ctx.beginPath();
+      ctx.fillStyle = color.replace('ALPHA', String(a));
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawBeaconMark(ctx, x, y, t, land) {
+      if (land) {
+        const k = Math.min(1, t / 2.2);
+        const white = 1 - k;
+        if (white > 0.02) {
+          drawDot(ctx, x, y, 3.2, 'rgba(255,255,255,ALPHA)', white * 0.9);
+        }
+      }
+    }
+
+    function draw(s, now) {
+      const t = (now - s.t0) / 1000;
+      const ctx = s.ctx;
+      ctx.clearRect(0, 0, s.w, s.h);
+      const b = beaconPos(s);
+      const spec = { base: 0.09 };
+
+      switch (s.id) {
+        case 'hold':
+          drawLattice(s, t, spec);
+          break;
+        case 'land':
+          drawLattice(s, t, spec);
+          drawBeaconMark(ctx, b.x, b.y, t, true);
+          break;
+        case 'neighbors':
+          drawLattice(s, t, spec);
+          (s.extras.cells || []).forEach((c) => {
+            const a = 0.18 + 0.22 * (0.5 + 0.5 * Math.sin(t * 1.1 + c.phase));
+            drawDot(ctx, c.x, c.y, 2.2, 'rgba(160,160,160,ALPHA)', a);
+          });
+          break;
+        case 'inbound': {
+          drawLattice(s, t, spec);
+          const n = 3;
+          for (let i = 0; i < n; i++) {
+            const cycle = (t * 0.22 + i / n) % 1;
+            const y = snapPoint(0, b.y + (i - 1) * G * 2).y;
+            const x0 = 8;
+            const x1 = b.x - 28;
+            const x = x0 + (x1 - x0) * cycle;
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(180,180,180,' + (0.35 * (1 - cycle)) + ')';
+            ctx.lineWidth = 1.4;
+            ctx.moveTo(Math.max(x0, x - 40), y);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+          }
+          break;
+        }
+        case 'outbound': {
+          drawLattice(s, t, spec);
+          for (let i = 0; i < 3; i++) {
+            const cycle = (t * 0.2 + i / 3) % 1;
+            const y = snapPoint(0, b.y + (i - 1) * G * 2).y;
+            const x0 = b.x + 28;
+            const x1 = s.w - 8;
+            const x = x0 + (x1 - x0) * cycle;
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(180,180,180,' + (0.32 * (1 - cycle)) + ')';
+            ctx.lineWidth = 1.4;
+            ctx.moveTo(x0, y);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+          }
+          break;
+        }
+        case 'orbit': {
+          drawLattice(s, t, spec);
+          const cells = s.extras.cells || [];
+          const idx = Math.floor(t * 0.55) % Math.max(cells.length, 1);
+          cells.forEach((c, i) => {
+            const on = i === idx;
+            drawDot(ctx, c.x, c.y, on ? 2.6 : 1.8, 'rgba(170,170,170,ALPHA)', on ? 0.7 : 0.12);
+          });
+          break;
+        }
+        case 'ping': {
+          drawLattice(s, t, spec);
+          const cycle = (t % 3.2) / 3.2;
+          if (cycle < 0.55) {
+            const u = cycle / 0.55;
+            const rad = 8 + u * G * 2.2;
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(24,176,47,' + (0.35 * (1 - u)) + ')';
+            ctx.lineWidth = 1.2;
+            ctx.arc(b.x, b.y, rad, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+          break;
+        }
+        case 'day':
+          drawLattice(s, t, { base: 0.07, day: 0.1 });
+          break;
+        case 'shift': {
+          drawLattice(s, t, spec);
+          if (!s.extras.dots) initShift(s);
+          s.extras.dots.forEach((d, i) => {
+            const life = (d.life + t * 0.08) % 1;
+            let a = 0;
+            if (life < 0.15) a = life / 0.15;
+            else if (life < 0.75) a = 1;
+            else a = 1 - (life - 0.75) / 0.25;
+            const pulse = 0.55 + 0.45 * Math.sin(t * 2 + i);
+            drawDot(ctx, d.c * G, d.r * G, 2.1 + pulse * 0.6, 'rgba(150,150,150,ALPHA)', 0.15 + a * 0.45);
+          });
+          break;
+        }
+        case 'radius':
+          drawLattice(s, t, { base: 0.08, pointer: 0.55, pointerR: 56 });
+          break;
+        case 'snap':
+          drawLattice(s, t, { base: 0.08, snap: true });
+          break;
+        case 'cross':
+          drawLattice(s, t, { base: 0.07, cross: true });
+          break;
+        case 'magnet':
+          drawLattice(s, t, { base: 0.08, magnet: true });
+          break;
+        case 'parallax':
+          drawLattice(s, t, { base: 0.1, parallax: true });
+          break;
+        case 'mask':
+          drawLattice(s, t, { base: 0.16, mask: true });
+          break;
+        case 'sweep':
+          drawLattice(s, t, { base: 0.07, sweep: 0.18, sweepAmp: 0.42 });
+          break;
+        case 'radial':
+          drawLattice(s, t, { base: 0.07, radial: true, radialAmp: 0.28, radialLen: 26, radialSpeed: 2.2 });
+          break;
+        case 'well':
+          drawLattice(s, t, { base: 0.12, well: 18, wellR: 70 });
+          break;
+        case 'spacetime':
+          drawLattice(s, t, {
+            base: 0.11,
+            well: 16,
+            wellR: 64,
+            ripple: true,
+            amp: 7,
+            len: 22,
+            speed: 2.4,
+            decay: 120
+          });
+          break;
+      }
+    }
+
+    function loop(now) {
+      stages.forEach((s) => draw(s, now));
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

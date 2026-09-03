@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Career Path — 3D Axis Preview</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100dvh;
+      background: #0a0a0c;
+      color: #e5e5e5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 28px 16px 48px;
+    }
+    .label {
+      font-size: 0.7rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.38);
+      margin-bottom: 8px;
+    }
+    .title {
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: rgba(255,255,255,0.9);
+      margin-bottom: 8px;
+    }
+    .desc {
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.4);
+      max-width: 520px;
+      text-align: center;
+      line-height: 1.55;
+      margin-bottom: 20px;
+    }
+    .stage {
+      position: relative;
+      width: min(92vw, 520px);
+      height: min(72vw, 400px);
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: #050508;
+    }
+    canvas { width: 100%; height: 100%; display: block; }
+    .legend {
+      margin-top: 18px;
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+      justify-content: center;
+      font-size: 0.72rem;
+      color: rgba(255,255,255,0.45);
+    }
+    .legend span { display: flex; align-items: center; gap: 6px; }
+    .swatch {
+      width: 10px; height: 10px; border-radius: 2px;
+    }
+    .hint {
+      margin-top: 12px;
+      font-size: 0.7rem;
+      color: rgba(255,255,255,0.28);
+    }
+  </style>
+</head>
+<body>
+  <div class="label">Preview</div>
+  <div class="title">3-axis career graph</div>
+  <p class="desc">
+    Starts as an X–Y slice (time × rank). As the path advances, the view rotates to
+    reveal Z (domain). The first slice fades while new X–Y slices appear along Z.
+  </p>
+  <div class="stage"><canvas id="c"></canvas></div>
+  <div class="legend">
+    <span><i class="swatch" style="background:#7dd3fc"></i> X · time</span>
+    <span><i class="swatch" style="background:#86efac"></i> Y · rank</span>
+    <span><i class="swatch" style="background:#f9a8d4"></i> Z · domain</span>
+    <span><i class="swatch" style="background:#fff"></i> path</span>
+  </div>
+  <div class="hint">Loops automatically · click to restart</div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    let W = 0, H = 0;
+    let t = 0;
+
+    // Path: stair on XY, then slight Z drift (domain shift)
+    // points in abstract units: x time 0..10, y rank 0..6, z domain 0..4
+    const path = [
+      { x: 0.0, y: 0.0, z: 0.0 },
+      { x: 1.2, y: 0.0, z: 0.0 }, // time in role
+      { x: 1.2, y: 1.0, z: 0.0 }, // promote
+      { x: 2.5, y: 1.0, z: 0.0 },
+      { x: 2.5, y: 2.0, z: 0.0 },
+      { x: 3.8, y: 2.0, z: 0.0 },
+      { x: 3.8, y: 2.0, z: 1.0 }, // lateral / domain shift begins
+      { x: 5.0, y: 2.0, z: 1.0 },
+      { x: 5.0, y: 3.0, z: 1.2 },
+      { x: 6.4, y: 3.0, z: 1.5 },
+      { x: 6.4, y: 4.0, z: 2.0 },
+      { x: 7.8, y: 4.0, z: 2.5 },
+      { x: 7.8, y: 5.0, z: 3.0 },
+      { x: 9.2, y: 5.0, z: 3.5 },
+      { x: 9.2, y: 5.5, z: 4.0 },
+      { x: 10.0, y: 5.5, z: 4.0 }
+    ];
+
+    // Arc-length table for path progress 0..1
+    const cum = [0];
+    for (let i = 1; i < path.length; i++) {
+      const a = path[i - 1], b = path[i];
+      const d = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+      cum.push(cum[i - 1] + d);
+    }
+    const totalLen = cum[cum.length - 1];
+
+    function pointAt(u) {
+      const dist = u * totalLen;
+      for (let i = 0; i < path.length - 1; i++) {
+        if (dist <= cum[i + 1]) {
+          const seg = cum[i + 1] - cum[i] || 1;
+          const f = (dist - cum[i]) / seg;
+          const a = path[i], b = path[i + 1];
+          return {
+            x: a.x + (b.x - a.x) * f,
+            y: a.y + (b.y - a.y) * f,
+            z: a.z + (b.z - a.z) * f
+          };
+        }
+      }
+      return { ...path[path.length - 1] };
+    }
+
+    // Camera: start looking at XY plane (Z flattened), then orbit to reveal Z
+    // progress p in 0..1 drives path and rotation together
+    function project(x, y, z, p) {
+      // Normalize data space
+      const nx = (x / 10) * 2 - 1;      // -1..1
+      const ny = (y / 6) * 2 - 1;
+      const nz = (z / 4) * 2 - 1;
+
+      // Rotation about Y axis: 0 = face XY, ~55° reveals Z
+      const angle = p * 0.95; // radians ~ 54°
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+
+      // Rotate around Y: (x,z) plane
+      const rx = nx * cos - nz * sin;
+      const rz = nx * sin + nz * cos;
+      const ry = ny;
+
+      // Slight tilt about X so Z depth reads better as rotation increases
+      const tilt = p * 0.35;
+      const cosT = Math.cos(tilt);
+      const sinT = Math.sin(tilt);
+      const ry2 = ry * cosT - rz * sinT;
+      const rz2 = ry * sinT + rz * cosT;
+
+      // Perspective
+      const fov = 2.2;
+      const depth = rz2 + 3.2;
+      const s = fov / depth;
+      const sx = W * 0.5 + rx * s * W * 0.38;
+      const sy = H * 0.55 - ry2 * s * H * 0.38;
+      return { x: sx, y: sy, depth: rz2, scale: s };
+    }
+
+    function resize() {
+      W = canvas.clientWidth;
+      H = canvas.clientHeight;
+      canvas.width = W * devicePixelRatio;
+      canvas.height = H * devicePixelRatio;
+      ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    }
+
+    function drawAxisLine(a, b, color, alpha, width) {
+      ctx.strokeStyle = color.replace('ALPHA', alpha);
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
+
+    function draw() {
+      t += 1;
+      // Full cycle ~ 12s at 60fps
+      const cycle = 720;
+      const phase = (t % cycle) / cycle;
+
+      // 0..0.15 hold XY view, 0.15..0.85 path + rotate, 0.85..1 hold
+      let p, pathU;
+      if (phase < 0.12) {
+        p = 0;
+        pathU = 0;
+      } else if (phase < 0.88) {
+        const u = (phase - 0.12) / 0.76;
+        pathU = u;
+        p = Math.pow(u, 0.85); // rotation slightly lags path start
+      } else {
+        p = 1;
+        pathU = 1;
+      }
+
+      ctx.clearRect(0, 0, W, H);
+
+      // --- XY slices along Z ---
+      // Initial slice (z=0) fades as p increases; new slices emerge
+      const sliceZs = [0, 1, 2, 3, 4];
+      for (const sz of sliceZs) {
+        // visibility: first slice fades; later slices fade in with rotation / path z
+        let alpha;
+        if (sz === 0) {
+          alpha = 0.55 * (1 - p * 0.85);
+        } else {
+          // appear as rotation reveals Z and path approaches that domain
+          const reveal = Math.max(0, Math.min(1, (p - sz * 0.12) / 0.35));
+          alpha = 0.12 + 0.28 * reveal * p;
+        }
+        if (alpha < 0.02) continue;
+
+        // Grid on this XY plane at fixed Z
+        const gridX = 6, gridY = 4;
+        for (let i = 0; i <= gridX; i++) {
+          const x0 = (i / gridX) * 10;
+          const a = project(x0, 0, sz, p);
+          const b = project(x0, 6, sz, p);
+          drawAxisLine(a, b, 'rgba(255,255,255,ALPHA)', alpha * 0.25, 1);
+        }
+        for (let j = 0; j <= gridY; j++) {
+          const y0 = (j / gridY) * 6;
+          const a = project(0, y0, sz, p);
+          const b = project(10, y0, sz, p);
+          drawAxisLine(a, b, 'rgba(255,255,255,ALPHA)', alpha * 0.25, 1);
+        }
+        // plane border
+        const c00 = project(0, 0, sz, p);
+        const c10 = project(10, 0, sz, p);
+        const c11 = project(10, 6, sz, p);
+        const c01 = project(0, 6, sz, p);
+        ctx.strokeStyle = 'rgba(255,255,255,' + (alpha * 0.45) + ')';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(c00.x, c00.y);
+        ctx.lineTo(c10.x, c10.y);
+        ctx.lineTo(c11.x, c11.y);
+        ctx.lineTo(c01.x, c01.y);
+        ctx.closePath();
+        ctx.stroke();
+      }
+
+      // --- Main axes from origin ---
+      const o = project(0, 0, 0, p);
+      const xEnd = project(10.5, 0, 0, p);
+      const yEnd = project(0, 6.5, 0, p);
+      const zEnd = project(0, 0, 4.5, p);
+
+      drawAxisLine(o, xEnd, 'rgba(125,211,252,ALPHA)', 0.9, 2);
+      drawAxisLine(o, yEnd, 'rgba(134,239,172,ALPHA)', 0.9, 2);
+      // Z axis fades in with rotation
+      drawAxisLine(o, zEnd, 'rgba(249,168,212,ALPHA)', 0.15 + 0.75 * p, 2);
+
+      // Axis labels
+      ctx.font = '600 11px system-ui, sans-serif';
+      ctx.fillStyle = 'rgba(125,211,252,0.85)';
+      ctx.fillText('X time', xEnd.x + 6, xEnd.y + 4);
+      ctx.fillStyle = 'rgba(134,239,172,0.85)';
+      ctx.fillText('Y rank', yEnd.x - 28, yEnd.y - 8);
+      ctx.fillStyle = 'rgba(249,168,212,' + (0.2 + 0.75 * p) + ')';
+      ctx.fillText('Z domain', zEnd.x + 8, zEnd.y - 4);
+
+      // --- Path polyline up to pathU ---
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      let started = false;
+      const steps = 80;
+      for (let i = 0; i <= steps; i++) {
+        const u = (i / steps) * pathU;
+        const pt = pointAt(u);
+        const pr = project(pt.x, pt.y, pt.z, p);
+        if (!started) { ctx.moveTo(pr.x, pr.y); started = true; }
+        else ctx.lineTo(pr.x, pr.y);
+      }
+      ctx.stroke();
+
+      // Tip glow
+      if (pathU > 0.02 && pathU < 0.99) {
+        const tip = pointAt(pathU);
+        const pr = project(tip.x, tip.y, tip.z, p);
+        const g = ctx.createRadialGradient(pr.x, pr.y, 0, pr.x, pr.y, 12);
+        g.addColorStop(0, 'rgba(255,255,255,0.45)');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(pr.x, pr.y, 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(pr.x, pr.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Caption
+      ctx.font = '500 10px system-ui, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      let caption = 'X–Y slice · time × rank';
+      if (p > 0.15 && p < 0.85) caption = 'rotating · revealing Z domain';
+      if (p >= 0.85) caption = 'X–Y–Z space · slices along domain';
+      ctx.fillText(caption, 16, H - 16);
+
+      requestAnimationFrame(draw);
+    }
+
+    window.addEventListener('resize', resize);
+    canvas.addEventListener('click', () => { t = 0; });
+    resize();
+    draw();
+  </script>
+</body>
+</html>
