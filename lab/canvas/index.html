@@ -26,6 +26,7 @@
       margin-bottom: 36px;
       max-width: 680px;
       line-height: 1.55;
+      align-items: center;
     }
     .intro strong { color: rgba(255,255,255,0.7); font-weight: 600; }
     .grid {
@@ -55,7 +56,7 @@
     .badge {
       font-size: 0.62rem;
       letter-spacing: 0.06em;
-      text-transform: uppercase;
+      text-transform: titlecase;
       color: #0a0a0c;
       background: #27c93f;
       border-radius: 99px;
@@ -104,7 +105,7 @@
 <body>
   <h1>Canvas Animations</h1>
   <p class="intro">
-    Grid animations for the Career landing canvas.
+    Grid animations for the Career landing canvas.<br>
     Grammar: <strong>dot = opening</strong>, <strong>gray line = possible path</strong>,
     <strong>white line = actual path</strong>
   </p>
@@ -113,25 +114,25 @@
   <script>
     const CELL = 24;
     const ITEMS = [
-      { id: 1, title: 'Full grid pulse', desc: 'Every intersection pulses. Ambient field, no object.' },
-      { id: 2, title: 'Emerging job dots (recycle)', desc: 'Market openings appear and vanish. Jobs language.' },
+      { id: 1, title: 'Full grid pulse', desc: 'Every intersection pulses. Ambient field, no object.', rec: true },
+      { id: 2, title: 'Emerging job dots (recycle)', desc: 'Market openings appear and vanish. Jobs language.', rec: true },
       { id: 3, title: 'Emerging dots, no recycle', desc: 'Roles appear and stay. Easy to read as Jobs.' },
       { id: 4, title: 'Dots then possible paths', desc: 'Openings first, then gray branches grow.' },
-      { id: 5, title: 'Possible + actual path', desc: 'Two-layer Career hover language. Recommended idle.', rec: true },
+      { id: 5, title: 'Possible + actual path', desc: 'Two-layer Career hover language. Recommended idle.' },
       { id: 6, title: 'Actual path only', desc: 'One white line. Reads as fate, not choice.' },
       { id: 7, title: 'Equal tree from the left', desc: 'All branches same weight. Options dump.' },
       { id: 8, title: 'Stair / ladder', desc: 'Time across, rank up. Classic ladder.' },
       { id: 9, title: 'Forge off the rails', desc: 'Actual path sometimes leaves possible paths for a new dot.' },
-      { id: 10, title: 'Reach, fade, restart', desc: 'Chapter loop. Pair with #5.', rec: true },
+      { id: 10, title: 'Reach, fade, restart', desc: 'Chapter loop. Pair with #5.' },
       { id: 11, title: '3D slice rotate', desc: 'X-Y fades as Z slices appear. Later, not first paint.' },
       { id: 12, title: 'Zoom into one node', desc: 'A role is picked. After click, not landing.' },
-      { id: 13, title: 'Specialty clusters', desc: 'Seats group into platform / product / data.' },
-      { id: 14, title: 'One node lit', desc: 'Fit rank. Neighbors dim. After filters.' },
+      { id: 13, title: 'Specialty clusters', desc: 'Seats group into platform / product / data.', rec: true },
+      { id: 14, title: 'One node lit', desc: 'Fit rank. Neighbors dim. After filters.', rec: true },
       { id: 15, title: 'Green hire seat', desc: 'Available / hired beacon. Hire owns this.' },
       { id: 16, title: 'Drift / gravity dots', desc: 'Economy particles. Commerce, not Career.' },
       { id: 17, title: 'Sphere network', desc: 'Marketplace globe. Commerce already uses this.' },
-      { id: 18, title: 'Heat / density', desc: 'Hot markets. Jobs demand map.' },
-      { id: 19, title: 'Cursor well ripple', desc: 'Hire playground. Move the pointer.' },
+      { id: 18, title: 'Heat / density', desc: 'Hot markets. Jobs demand map.', rec: true },
+      { id: 19, title: 'Cursor well ripple', desc: 'Hire playground. Move the pointer.', rec: true },
       { id: 20, title: 'Static grid', desc: 'No motion. Quiet document fallback.' },
       { id: 21, title: 'Draw in once, then still', desc: 'Arrival, then hold.' },
       { id: 22, title: 'Specialty lanes', desc: 'Horizontal tracks inside software.' },
@@ -145,7 +146,7 @@
       card.className = 'card' + (item.rec ? ' rec' : '');
       card.innerHTML =
         '<div class="card-label">' + item.id + '. ' + item.title +
-        (item.rec ? '<span class="badge">Rec</span>' : '') + '</div>' +
+        (item.rec ? '<span class="badge">Recommended</span>' : '') + '</div>' +
         '<p class="card-desc">' + item.desc + '</p>' +
         '<div class="stage" data-anim="' + item.id + '">' +
           '<canvas></canvas>' +
