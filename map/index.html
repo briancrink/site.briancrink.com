@@ -156,17 +156,11 @@
     }
 
     .site-link {
-      position: relative;
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 0.55rem;
       margin: 0;
-    }
-
-    .map-cluster {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
     }
 
     .site-nav .portal {
@@ -219,13 +213,7 @@
       display: block;
     }
 
-    .map-link {
-      position: absolute;
-      left: 100%;
-      top: 50%;
-      margin-left: 0.28rem;
-      transform: translateY(-50%);
-    }
+
 
     .identity {
       position: relative;
@@ -393,8 +381,6 @@
         <p class="site-link">
           <a href="https://portal.briancrink.com" class="site-nav-link portal">Portal</a>
           <span class="nav-dot" aria-hidden="true">•</span>
-          <span class="map-cluster">
-          <a href="https://site.briancrink.com/map" class="site-nav-link map">Site</a>
           <a href="https://site.briancrink.com/map" class="map-link" aria-label="Site map"><svg class="map-icon" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <clipPath id="mapFillPortal"><path d="M3.15 7.85 L8.85 4.55 L15.05 8.05 L20.7 4.75 L20.7 16.25 L15.05 19.55 L8.85 16.05 L3.15 19.35 Z"/></clipPath>
               <g clip-path="url(#mapFillPortal)">
@@ -418,7 +404,6 @@
               <line x1="19.545" y1="13.689" x2="22.395" y2="16.539" stroke="#e0b36a" stroke-width="1.85" stroke-linecap="round"/>
               <circle cx="16.858" cy="11.002" r="2.85" fill="rgba(90, 190, 255, 0.38)" stroke="#8b9098" stroke-width="0.82"/>
             </svg></a>
-          </span>
         </p>
       </div>
       <div class="identity">
