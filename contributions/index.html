@@ -336,6 +336,10 @@
   .stats strong {
     color: #00ff9d;
   }
+  
+  body.light .stats strong {
+    color: #00aeff;
+  }
 
   .calendar-wrapper {
     display: flex;
@@ -400,6 +404,15 @@
     background: #0f131e;
     cursor: pointer;
   }
+
+  body.light .day {
+    background: #f1f1f1;
+  }
+
+  body.light .day.level-1 { background: #005387; }
+  body.light .day.level-2 { background: #006fca; }
+  body.light .day.level-3 { background: #008ce3; }
+  body.light .day.level-4 { background: #009dff; }
 
   .day.empty {
     background: transparent;
